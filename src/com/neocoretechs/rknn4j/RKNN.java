@@ -84,13 +84,17 @@ public class RKNN {
 	    the tensor data type.
 	*/
 	public enum rknn_tensor_type {
-	    RKNN_TENSOR_FLOAT32,                            /* data type is float32. */
-	    RKNN_TENSOR_FLOAT16,                                /* data type is float16. */
-	    RKNN_TENSOR_INT8,                                   /* data type is int8. */
-	    RKNN_TENSOR_UINT8,                                  /* data type is uint8. */
-	    RKNN_TENSOR_INT16,                                  /* data type is int16. */
-
-	    RKNN_TENSOR_TYPE_MAX
+		RKNN_TENSOR_FLOAT32 ,                            /* data type is float32. */
+		RKNN_TENSOR_FLOAT16,                                /* data type is float16. */
+		RKNN_TENSOR_INT8,                                   /* data type is int8. */
+		RKNN_TENSOR_UINT8,                                  /* data type is uint8. */
+		RKNN_TENSOR_INT16,                                  /* data type is int16. */
+		RKNN_TENSOR_UINT16,                                 /* data type is uint16. */
+		RKNN_TENSOR_INT32,                                  /* data type is int32. */
+		RKNN_TENSOR_UINT32,                                 /* data type is uint32. */
+		RKNN_TENSOR_INT64,                                  /* data type is int64. */
+		RKNN_TENSOR_BOOL,
+		RKNN_TENSOR_TYPE_MAX
 	};
 
 	/*
@@ -100,7 +104,6 @@ public class RKNN {
 	    RKNN_TENSOR_QNT_NONE,                           /* none. */
 	    RKNN_TENSOR_QNT_DFP,                                /* dynamic fixed point. */
 	    RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC,                  /* asymmetric affine. */
-
 	    RKNN_TENSOR_QNT_MAX
 	};
 
@@ -108,16 +111,54 @@ public class RKNN {
 	    the tensor data format.
 	*/
 	public enum rknn_tensor_format {
-	    RKNN_TENSOR_NCHW,                               /* data format is NCHW. */
-	    RKNN_TENSOR_NHWC,                                   /* data format is NHWC. */
-
-	    RKNN_TENSOR_FORMAT_MAX
+		RKNN_TENSOR_NCHW ,                               /* data format is NCHW. */
+		RKNN_TENSOR_NHWC,                                   /* data format is NHWC. */
+		RKNN_TENSOR_NC1HWC2,                                /* data format is NC1HWC2. */
+		RKNN_TENSOR_UNDEFINED,
+		RKNN_TENSOR_FORMAT_MAX
 	};
 	
 	public static String dump_tensor_attr(rknn_tensor_attr attr) {
 	  return String.format("  index=%d, name=%s, n_dims=%d, dims=[%d, %d, %d, %d], n_elems=%d, size=%d, fmt=%s, type=%s, qnt_type=%s, zp=%d, scale=%f\n",
 	         attr.index, attr.name, attr.n_dims, attr.dims[0], attr.dims[1], attr.dims[2], attr.dims[3],
-	         attr.n_elems, attr.size, attr.fmt, attr.type, attr.qnt_type, attr.zp, attr.scale);
+	         attr.n_elems, attr.size, get_format_string(attr.fmt), get_type_string(attr.type), get_qnt_type_string(attr.qnt_type), attr.zp, attr.scale);
+	}
+	
+	static String get_type_string(rknn_tensor_type type)
+	{
+	    switch(type) {
+	    	case RKNN_TENSOR_FLOAT32: return "FP32";
+	    	case RKNN_TENSOR_FLOAT16: return "FP16";
+	    	case RKNN_TENSOR_INT8: return "INT8";
+	    	case RKNN_TENSOR_UINT8: return "UINT8";
+	    	case RKNN_TENSOR_INT16: return "INT16";
+	    	case RKNN_TENSOR_UINT16: return "UINT16";
+	    	case RKNN_TENSOR_INT32: return "INT32";
+	    	case RKNN_TENSOR_UINT32: return "UINT32";
+	    	case RKNN_TENSOR_INT64: return "INT64";
+	    	case RKNN_TENSOR_BOOL: return "BOOL";
+	    	default: return "UNKNOW";
+	    }
+	}
+	
+	static String get_qnt_type_string(rknn_tensor_qnt_type type)
+	{
+	    switch(type) {
+	    	case RKNN_TENSOR_QNT_NONE: return "NONE";
+	    	case RKNN_TENSOR_QNT_DFP: return "DFP";
+	    	case RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC: return "AFFINE";
+	    	default: return "UNKNOW";
+	    }
 	}
 
+	static String get_format_string(rknn_tensor_format fmt)
+	{
+	    switch(fmt) {
+	    	case RKNN_TENSOR_NCHW: return "NCHW";
+	    	case RKNN_TENSOR_NHWC: return "NHWC";
+	    	case RKNN_TENSOR_NC1HWC2: return "NC1HWC2";
+	    	case RKNN_TENSOR_UNDEFINED: return "UNDEFINED";
+	    	default: return "UNKNOW";
+	    }
+	}
 }

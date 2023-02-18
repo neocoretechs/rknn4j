@@ -1,17 +1,99 @@
 package com.neocoretechs.rknn4j;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+
 public class rknpu2 {
-	static {
-		System.loadLibrary("RKNN");
-	}
-	
-	/**
-	* rknn_find_devices
-    * find the devices that connected to host.
-    * @param rknn_devices_id pdevs      the pointer of devices information structure.
-    * @return: int error code.
-	*/
-	public native int rknn_find_devices(rknn_devices_id pdevs);
+	 private enum LibraryState {
+		    NOT_LOADED,
+		    LOADING,
+		    LOADED
+	 }
+	 private static final AtomicReference<LibraryState> libraryLoaded = new AtomicReference<>(LibraryState.NOT_LOADED);
+	 
+	 static {
+		    rknpu2.loadLibrary();
+	 }
+	 /**
+	  * Loads the necessary library files.
+	  * Calling this method twice will have no effect.
+	  * By default the method extracts the shared library for loading at
+	  * java.io.tmpdir, however, you can override this temporary location by
+	  * setting the environment variable RKNPU2_SHAREDLIB_DIR.
+	  */
+	 public static void loadLibrary() {
+		    if (libraryLoaded.get() == LibraryState.LOADED) {
+		      return;
+		    }
+		    if (libraryLoaded.compareAndSet(LibraryState.NOT_LOADED,LibraryState.LOADING)) {
+		      String lib = System.getProperty("java.library.path");
+		      if(lib != null) {
+		    	   System.loadLibrary("librknn4j.so");
+				   libraryLoaded.set(LibraryState.LOADED);
+				   return; 
+		      }
+		      final String tmpDir = System.getenv("RKNPU2_SHAREDLIB_DIR");
+	    	  File f = new File(tmpDir);
+	    	  if(f.isDirectory()) {
+	    		  loadLibrary(Arrays.asList(f.list()));
+	    	  } else {
+	    		  System.loadLibrary(tmpDir);
+	    		  libraryLoaded.set(LibraryState.LOADED);
+	    		  return;
+	    	  }
+		    }
+
+		    while (libraryLoaded.get() == LibraryState.LOADING) {
+		      try {
+		        Thread.sleep(10);
+		      } catch(final InterruptedException e) {
+		        //ignore
+		      }
+		    }
+	 }
+
+	 /**
+	  * Tries to load the necessary library files from the given list of
+	  * directories.
+	  *
+	  * @param paths a list of strings where each describes a directory of a library.
+	  */
+	 public static void loadLibrary(final List<String> paths) {
+		    if (libraryLoaded.get() == LibraryState.LOADED) {
+		      return;
+		    }
+		    if (libraryLoaded.compareAndSet(LibraryState.NOT_LOADED,LibraryState.LOADING)) {
+		      boolean success = false;
+		      UnsatisfiedLinkError err = null;
+		      for (final String path : paths) {
+		        try {
+		              System.load(path);
+		          success = true;
+		          break;
+		        } catch (final UnsatisfiedLinkError e) {
+		          err = e;
+		        }
+		      }
+		      if (!success) {
+		        libraryLoaded.set(LibraryState.NOT_LOADED);
+		        throw err;
+		      }
+		      libraryLoaded.set(LibraryState.LOADED);
+		      return;
+		    }
+
+		    while (libraryLoaded.get() == LibraryState.LOADING) {
+		      try {
+		        Thread.sleep(10);
+		      } catch(final InterruptedException e) {
+		        //ignore
+		      }
+		    }
+	 }
 
 	/**
 	 * rknn_init

@@ -1,6 +1,6 @@
 package com.neocoretechs.rknn4j;
 /**
- * 
+ * This seems to not apply to current version of RK3588
  * @author Jonathan Groff Copyright (C) NeoCoreTechs 2023
  *
  */

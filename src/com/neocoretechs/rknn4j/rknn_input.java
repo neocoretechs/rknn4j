@@ -10,10 +10,9 @@ import com.neocoretechs.rknn4j.RKNN.rknn_tensor_type;
 
 public class rknn_input {
 	  int index;                                     /* the input index. */
-	  long buf;                                          /* the input buf for index. */
+	  byte[] buf;                                    /* the input buf for index. */
 	  int size;                                      /* the size of input buf. */
-	  byte pass_through;                             /* 
-	  													pass through mode.
+	  boolean pass_through;                          /* pass through mode.
 	                                                   	if TRUE, the buf data is passed directly to the input node of the rknn model
 	                                                    without any conversion. the following variables do not need to be set.
 	                                                    if FALSE, the buf data is converted into an input consistent with the model
@@ -39,13 +38,13 @@ public class rknn_input {
 	/**
 	 * @return the buf
 	 */
-	public long getBuf() {
+	public byte[] getBuf() {
 		return buf;
 	}
 	/**
 	 * @param buf the buf to set
 	 */
-	public void setBuf(long buf) {
+	public void setBuf(byte[] buf) {
 		this.buf = buf;
 	}
 	/**
@@ -63,13 +62,13 @@ public class rknn_input {
 	/**
 	 * @return the pass_through
 	 */
-	public byte getPass_through() {
+	public boolean getPass_through() {
 		return pass_through;
 	}
 	/**
 	 * @param pass_through the pass_through to set
 	 */
-	public void setPass_through(byte pass_through) {
+	public void setPass_through(boolean pass_through) {
 		this.pass_through = pass_through;
 	}
 	/**

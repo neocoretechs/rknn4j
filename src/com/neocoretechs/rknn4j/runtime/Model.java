@@ -56,6 +56,7 @@ public class Model {
 	 */
 	public void setInputs(int width, int height, int channels, byte[] buf) {
 		rknn_input[] inputs = new rknn_input[1];
+		inputs[0] = new rknn_input();
 		inputs[0].setIndex(0);
 		inputs[0].setType(rknn_tensor_type.RKNN_TENSOR_UINT8);
 		inputs[0].setSize( width * height * channels);

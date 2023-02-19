@@ -30,4 +30,9 @@ public class rknn_input_output_num {
 	public void setN_output(int n_output) {
 		this.n_output = n_output;
 	}
+	
+	@Override
+	public String toString() {
+		return String.format("Number inputs=%d, Number outputs=%d", n_input, n_output);
+	}
 }

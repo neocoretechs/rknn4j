@@ -30,4 +30,9 @@ public class rknn_sdk_version {
 	public void setDrv_version(String drv_version) {
 		this.drv_version = drv_version;
 	}
+	
+	@Override
+	public String toString() {
+		return String.format("RKNN SDK - API version:%s, Driver version:%s",api_version,drv_version);
+	}
 }

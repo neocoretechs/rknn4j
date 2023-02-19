@@ -119,12 +119,12 @@ public class RKNN {
 	};
 	
 	public static String dump_tensor_attr(rknn_tensor_attr attr) {
-	  return String.format("  index=%d, name=%s, n_dims=%d, dims=[%d, %d, %d, %d], n_elems=%d, size=%d, fmt=%s, type=%s, qnt_type=%s, zp=%d, scale=%f\n",
+	  return String.format("  index=%d, name=%s, n_dims=%d, dims=[%d, %d, %d, %d], n_elems=%d, size=%d, fmt=%s, type=%s, quantitative_type=%s, zp=%d, scale=%f\n",
 	         attr.index, attr.name, attr.n_dims, attr.dims[0], attr.dims[1], attr.dims[2], attr.dims[3],
 	         attr.n_elems, attr.size, get_format_string(attr.fmt), get_type_string(attr.type), get_qnt_type_string(attr.qnt_type), attr.zp, attr.scale);
 	}
 	
-	static String get_type_string(rknn_tensor_type type)
+	public static String get_type_string(rknn_tensor_type type)
 	{
 	    switch(type) {
 	    	case RKNN_TENSOR_FLOAT32: return "FP32";
@@ -140,8 +140,12 @@ public class RKNN {
 	    	default: return "UNKNOW";
 	    }
 	}
-	
-	static String get_qnt_type_string(rknn_tensor_qnt_type type)
+	/**
+	 * The quantitative type
+	 * @param type
+	 * @return
+	 */
+	public static String get_qnt_type_string(rknn_tensor_qnt_type type)
 	{
 	    switch(type) {
 	    	case RKNN_TENSOR_QNT_NONE: return "NONE";
@@ -151,7 +155,7 @@ public class RKNN {
 	    }
 	}
 
-	static String get_format_string(rknn_tensor_format fmt)
+	public static String get_format_string(rknn_tensor_format fmt)
 	{
 	    switch(fmt) {
 	    	case RKNN_TENSOR_NCHW: return "NCHW";
@@ -160,5 +164,34 @@ public class RKNN {
 	    	case RKNN_TENSOR_UNDEFINED: return "UNDEFINED";
 	    	default: return "UNKNOW";
 	    }
+	}
+	
+	public static String get_error_string(int err) {
+		switch(err) {
+		case -1:
+			return "execute failed";
+		case -2:
+			return "execute timeout";		
+		case -3:
+			return "device is unavailable";	
+		case -4:
+			return "memory malloc fail";
+		case -5:
+			return "parameter is invalid";
+		case -6:
+			return "model is invalid";
+		case -7:
+			return "context is invalid";
+		case -8:
+			return "input is invalid";
+		case -9:
+			return "output is invalid";
+		case -10:
+			return "the device does not match, please update rknn sdk and npu driver firmware";
+		case -11:
+			return "this RKNN model uses pre_compile mode, but is not compatible with current driver";
+		default:
+			return "unknown error code returned from NPU";
+		}
 	}
 }

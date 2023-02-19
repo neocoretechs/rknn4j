@@ -16,44 +16,7 @@ public class rknpu2 {
 	 private static final AtomicReference<LibraryState> libraryLoaded = new AtomicReference<>(LibraryState.NOT_LOADED);
 	 
 	 static {
-		    rknpu2.loadLibrary();
-	 }
-	 /**
-	  * Loads the necessary library files.
-	  * Calling this method twice will have no effect.
-	  * By default the method extracts the shared library for loading at
-	  * java.io.tmpdir, however, you can override this temporary location by
-	  * setting the environment variable RKNPU2_SHAREDLIB_DIR.
-	  */
-	 public static void loadLibrary() {
-		    if (libraryLoaded.get() == LibraryState.LOADED) {
-		      return;
-		    }
-		    if (libraryLoaded.compareAndSet(LibraryState.NOT_LOADED,LibraryState.LOADING)) {
-		      String lib = System.getProperty("java.library.path");
-		      if(lib != null) {
-		    	   System.loadLibrary("librknn4j.so");
-				   libraryLoaded.set(LibraryState.LOADED);
-				   return; 
-		      }
-		      final String tmpDir = System.getenv("RKNPU2_SHAREDLIB_DIR");
-	    	  File f = new File(tmpDir);
-	    	  if(f.isDirectory()) {
-	    		  loadLibrary(Arrays.asList(f.list()));
-	    	  } else {
-	    		  System.loadLibrary(tmpDir);
-	    		  libraryLoaded.set(LibraryState.LOADED);
-	    		  return;
-	    	  }
-		    }
-
-		    while (libraryLoaded.get() == LibraryState.LOADING) {
-		      try {
-		        Thread.sleep(10);
-		      } catch(final InterruptedException e) {
-		        //ignore
-		      }
-		    }
+		    rknpu2.loadLibrary(Arrays.asList(new File(System.getProperty("java.library.path")).list()));
 	 }
 
 	 /**
@@ -69,13 +32,19 @@ public class rknpu2 {
 		    if (libraryLoaded.compareAndSet(LibraryState.NOT_LOADED,LibraryState.LOADING)) {
 		      boolean success = false;
 		      UnsatisfiedLinkError err = null;
+		      System.out.println("Loading from paths list of length:"+paths.size());
 		      for (final String path : paths) {
 		        try {
-		              System.load(path);
-		          success = true;
-		          break;
+		          System.out.println(path);
+		          if(path.endsWith(".so") || path.endsWith(".dll")) {
+		        	  System.out.println("Trying load for:"+path);
+		        	  System.load(new File(path).getAbsolutePath());
+		        	  success = true;
+		          }
 		        } catch (final UnsatisfiedLinkError e) {
 		          err = e;
+		          success = false;
+		          break;
 		        }
 		      }
 		      if (!success) {
@@ -88,6 +57,7 @@ public class rknpu2 {
 
 		    while (libraryLoaded.get() == LibraryState.LOADING) {
 		      try {
+		    	System.out.println("Waiting for load, retry..");
 		        Thread.sleep(10);
 		      } catch(final InterruptedException e) {
 		        //ignore

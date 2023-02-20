@@ -10,6 +10,7 @@ import com.neocoretechs.rknn4j.RKNN.rknn_tensor_type;
 import com.neocoretechs.rknn4j.rknn_input;
 import com.neocoretechs.rknn4j.rknn_input_output_num;
 import com.neocoretechs.rknn4j.rknn_sdk_version;
+import com.neocoretechs.rknn4j.rknn_tensor_attr;
 import com.neocoretechs.rknn4j.rknpu2;
 import com.neocoretechs.rknn4j.image.Instance;
 
@@ -19,6 +20,7 @@ public class Model {
 	public byte[] load(String file) throws IOException  {
 		return Files.readAllBytes(Paths.get(file));
 	}
+	
 	/**
 	 * Initialize the given model. this is always step 1.
 	 * @param model
@@ -28,6 +30,7 @@ public class Model {
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
+	
 	/**
 	 * Query the SDK version used to interface to the NPU
 	 * @return
@@ -39,6 +42,7 @@ public class Model {
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return sdk;
 	}
+	
 	/**
 	 * Query the number of inputs to, and outputs from the currently loaded model.
 	 * @return
@@ -50,6 +54,25 @@ public class Model {
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return ioNum;
 	}
+	
+	public rknn_tensor_attr queryOutputAttrs(int index) {
+		rknn_tensor_attr outputAttrs = new rknn_tensor_attr();
+		outputAttrs.setIndex(index);
+		int res = npu.rknn_query_output_attr(outputAttrs);
+		if(res != RKNN.RKNN_SUCC)
+			throw new RuntimeException(RKNN.get_error_string(res));
+		return outputAttrs;
+	}
+	
+	public rknn_tensor_attr queryInputAttrs(int index) {
+		rknn_tensor_attr inputAttrs = new rknn_tensor_attr();
+		inputAttrs.setIndex(index);
+		int res = npu.rknn_query_input_attr(inputAttrs);
+		if(res != RKNN.RKNN_SUCC)
+			throw new RuntimeException(RKNN.get_error_string(res));
+		return inputAttrs;
+	}
+	
 	/**
 	 * Set the input vector
 	 * @return
@@ -71,6 +94,7 @@ public class Model {
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
+	
 	/**
 	 * java com.neocoretechs.rknn4j.runtime.Model <model_file> <image jpeg file>
 	 * @param args
@@ -85,6 +109,17 @@ public class Model {
 		System.out.printf("%s %s%n", sdk, ioNum);
 		Instance image = Instance.readFile(args[1]);
 		m.setInputs(image.getWidth(),image.getHeight(),image.getChannels(),image.getRGB888());
+		for(int i = 0; i < ioNum.getN_input(); i++) {
+			rknn_tensor_attr inputAttr = m.queryInputAttrs(i);
+			System.out.println("Tensor input layer "+i+" attributes:");
+			System.out.println(RKNN.dump_tensor_attr(inputAttr));
+		}
+		for(int i = 0; i < ioNum.getN_output(); i++) {
+			rknn_tensor_attr outputAttr = m.queryOutputAttrs(i);
+			System.out.println("Tensor output layer "+i+" attributes:");
+			System.out.println(RKNN.dump_tensor_attr(outputAttr));
+		}
+		m.npu.rknn_run(null);
 		m.destroy();
 	}
 }

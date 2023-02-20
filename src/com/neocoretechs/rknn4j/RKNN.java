@@ -119,13 +119,16 @@ public class RKNN {
 	};
 	
 	public static String dump_tensor_attr(rknn_tensor_attr attr) {
-	  return String.format("  index=%d, name=%s, n_dims=%d, dims=[%d, %d, %d, %d], n_elems=%d, size=%d, fmt=%s, type=%s, quantitative_type=%s, zp=%d, scale=%f\n",
+	  return String.format("  index=%d, name=%s, n_dims=%d, dims=[%d, %d, %d, %d], n_elems=%d, size=%d, fmt=%s, type=%s, "
+	  		+ "quantitative_type=%s, zp=%d, scale=%f, fl=%d, w_stride=%d, size_with_stride=%d, pass_through=%d, h_stride=%d\n",
 	         attr.index, attr.name, attr.n_dims, attr.dims[0], attr.dims[1], attr.dims[2], attr.dims[3],
-	         attr.n_elems, attr.size, get_format_string(attr.fmt), get_type_string(attr.type), get_qnt_type_string(attr.qnt_type), attr.zp, attr.scale);
+	         attr.n_elems, attr.size, get_format_string(attr.fmt), get_type_string(attr.type), get_qnt_type_string(attr.qnt_type), 
+	         attr.zp, attr.scale, attr.fl, attr.w_stride, attr.size_with_stride, attr.pass_through, attr.h_stride );
 	}
 	
-	public static String get_type_string(rknn_tensor_type type)
-	{
+	public static String get_type_string(rknn_tensor_type type) {
+		if(type == null)
+			return "NULL";
 	    switch(type) {
 	    	case RKNN_TENSOR_FLOAT32: return "FP32";
 	    	case RKNN_TENSOR_FLOAT16: return "FP16";
@@ -145,8 +148,9 @@ public class RKNN {
 	 * @param type
 	 * @return
 	 */
-	public static String get_qnt_type_string(rknn_tensor_qnt_type type)
-	{
+	public static String get_qnt_type_string(rknn_tensor_qnt_type type) {
+		if(type == null)
+			return "NULL";
 	    switch(type) {
 	    	case RKNN_TENSOR_QNT_NONE: return "NONE";
 	    	case RKNN_TENSOR_QNT_DFP: return "DFP";
@@ -155,8 +159,9 @@ public class RKNN {
 	    }
 	}
 
-	public static String get_format_string(rknn_tensor_format fmt)
-	{
+	public static String get_format_string(rknn_tensor_format fmt) {
+		if(fmt == null)
+			return "NULL";
 	    switch(fmt) {
 	    	case RKNN_TENSOR_NCHW: return "NCHW";
 	    	case RKNN_TENSOR_NHWC: return "NHWC";

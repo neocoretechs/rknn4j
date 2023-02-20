@@ -32,10 +32,10 @@ public class rknpu2 {
 		    if (libraryLoaded.compareAndSet(LibraryState.NOT_LOADED,LibraryState.LOADING)) {
 		      boolean success = false;
 		      UnsatisfiedLinkError err = null;
-		      System.out.println("Loading from paths list of length:"+paths.size());
+		      //.out.println("Loading from paths list of length:"+paths.size());
 		      for (final String path : paths) {
 		        try {
-		          System.out.println(path);
+		          //System.out.println(path);
 		          if(path.endsWith(".so") || path.endsWith(".dll")) {
 		        	  System.out.println("Trying load for:"+path);
 		        	  System.load(new File(path).getAbsolutePath());

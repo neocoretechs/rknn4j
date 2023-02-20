@@ -22,6 +22,13 @@ public class rknn_tensor_attr {
 	   byte fl;                                       /* fractional length for RKNN_TENSOR_QNT_DFP. */
 	   int zp;                                        /* zero point for RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC. */
 	   float scale;                                   /* scale for RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC. */
+	   int w_stride;                                  /* the stride of tensor along the width dimention of input, Note: it is read-only, 0 means equal to width. */
+	   int size_with_stride;                          /* the bytes size of tensor with stride. */
+	   byte pass_through;                             /* pass through mode, for rknn_set_io_mem interface. if TRUE, the buf data is passed directly to the input node of the rknn model
+                 										without any conversion. the following variables do not need to be set.
+        												if FALSE, the buf data is converted into an input consistent with the model according to the following type and fmt. 
+        												so the following variables need to be set.*/
+	   int h_stride;                 
 	/**
 	 * @return the index
 	 */
@@ -52,11 +59,17 @@ public class rknn_tensor_attr {
 	public int[] getDims() {
 		return dims;
 	}
+	public int getDim(int i) {
+		return dims[i];
+	}
 	/**
 	 * @param dims the dims to set
 	 */
 	public void setDims(int[] dims) {
 		this.dims = dims;
+	}
+	public void setDim(int i, int dim) {
+		this.dims[i] = dim;
 	}
 	/**
 	 * @return the name
@@ -165,5 +178,53 @@ public class rknn_tensor_attr {
 	 */
 	public void setScale(float scale) {
 		this.scale = scale;
+	}
+	/**
+	 * @return the w_stride
+	 */
+	public int getW_stride() {
+		return w_stride;
+	}
+	/**
+	 * @param w_stride the w_stride to set
+	 */
+	public void setW_stride(int w_stride) {
+		this.w_stride = w_stride;
+	}
+	/**
+	 * @return the size_with_stride
+	 */
+	public int getSize_with_stride() {
+		return size_with_stride;
+	}
+	/**
+	 * @param size_with_stride the size_with_stride to set
+	 */
+	public void setSize_with_stride(int size_with_stride) {
+		this.size_with_stride = size_with_stride;
+	}
+	/**
+	 * @return the pass_through
+	 */
+	public byte getPass_through() {
+		return pass_through;
+	}
+	/**
+	 * @param pass_through the pass_through to set
+	 */
+	public void setPass_through(byte pass_through) {
+		this.pass_through = pass_through;
+	}
+	/**
+	 * @return the h_stride
+	 */
+	public int getH_stride() {
+		return h_stride;
+	}
+	/**
+	 * @param h_stride the h_stride to set
+	 */
+	public void setH_stride(int h_stride) {
+		this.h_stride = h_stride;
 	}
 }

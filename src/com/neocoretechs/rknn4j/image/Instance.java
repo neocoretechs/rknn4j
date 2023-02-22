@@ -68,6 +68,7 @@ public class Instance {
 		Graphics2D g = scaledBI.createGraphics();
 		g.drawImage(image, 0, 0, fixWidth, fixHeight, null);
 		g.dispose();
+		this.image = scaledBI;
 		for (int row = 0; row < this.height; ++row) {
 			for (int col = 0; col < this.width; ++col) {
 				Color c = new Color(this.image.getRGB(col, row));

@@ -11,21 +11,38 @@ import com.neocoretechs.rknn4j.RKNN.rknn_tensor_format;
 import com.neocoretechs.rknn4j.RKNN.rknn_tensor_type;
 import com.neocoretechs.rknn4j.rknn_input;
 import com.neocoretechs.rknn4j.rknn_input_output_num;
+import com.neocoretechs.rknn4j.rknn_output;
 import com.neocoretechs.rknn4j.rknn_sdk_version;
 import com.neocoretechs.rknn4j.rknn_tensor_attr;
 import com.neocoretechs.rknn4j.rknpu2;
 import com.neocoretechs.rknn4j.image.Instance;
-
+/**
+ * Java bindings to RockChip RK3588 Neural Processing Unit SDK.
+ * The business model, supporting the neural network models.
+ * Sets up the various structures to perform inference on the embedded SoC NPU using
+ * pretrained models of your choosing.<p/>
+ * Main method provides object segmentation and recognition and has been tested with the ssd_inception_v2
+ * and YOLOv5s models provided with SDK.
+ * @author Jonathan Groff Copyright (C) NeoCoreTechs 2023
+ *
+ */
 public class Model {
 	private rknpu2 npu = new rknpu2();
-	
+	/**
+	 * Load a file and return byte array, presumably to load model from storage.
+	 * @param file
+	 * @return
+	 * @throws IOException
+	 */
 	public byte[] load(String file) throws IOException  {
 		return Files.readAllBytes(Paths.get(file));
 	}
 	
 	/**
 	 * Initialize the given model. this is always step 1.
-	 * @param model
+	 * Performs rknn_init
+	 * @param model The model loaded from desired source in rknn format.
+	 * @throws RuntimeException if query fails
 	 */
 	public void init(byte[] model) {
 		int res = npu.rknn_init(model, model.length, RKNN.RKNN_FLAG_PRIOR_HIGH);
@@ -34,8 +51,10 @@ public class Model {
 	}
 	
 	/**
-	 * Query the SDK version used to interface to the NPU
-	 * @return
+	 * Query the SDK version used to interface to the NPU.
+	 * Performs rknn_query_sdk.
+	 * @return rknn_sdk_version from query
+	 * @throws RuntimeException if query fails.
 	 */
 	public rknn_sdk_version querySDK() {
 		rknn_sdk_version sdk = new rknn_sdk_version();
@@ -47,7 +66,9 @@ public class Model {
 	
 	/**
 	 * Query the number of inputs to, and outputs from the currently loaded model.
-	 * @return
+	 * Performs rknn_query_IO_num.
+	 * @return The queried rknn_input_output_num
+	 * @throws RuntimeException if query fails.
 	 */
 	public rknn_input_output_num queryIONumber() {
 		rknn_input_output_num ioNum = new rknn_input_output_num();
@@ -65,7 +86,12 @@ public class Model {
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return outputAttrs;
 	}
-	
+	/**
+	 * Query the input attributes. will perform the rknn_query_input_attr call to NPU.
+	 * @param index model attribute index
+	 * @return the queried rknn_tensor_attr instance from NPU from the model index
+	 * @throws RuntimeException if query fails
+	 */
 	public rknn_tensor_attr queryInputAttrs(int index) {
 		rknn_tensor_attr inputAttrs = new rknn_tensor_attr();
 		inputAttrs.setIndex(index);
@@ -76,8 +102,17 @@ public class Model {
 	}
 	
 	/**
-	 * Set the input vector
-	 * @return
+	 * Set the input vector. We are calling rknn_inputs_set inside the routine
+	 * such that initialization is complete. It is assumed that the image has been read, properly
+	 * resized to match the model if necessary, a proper tensor type and format are provided
+	 * and the buffer is loaded with image data.
+	 * @param width image width
+	 * @param height image height
+	 * @param channels image channels, 3 for RGB, 1 for grayscale etc.
+	 * @param type rknn_tensor_type from enum
+	 * @param fmt rknn_tensor_fmt from enum
+	 * @param buf image bytes in format to match model
+	 * @throws RuntimeException i input call fails.
 	 */
 	public void setInputs(int width, int height, int channels, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
 		rknn_input[] inputs = new rknn_input[1];
@@ -91,6 +126,35 @@ public class Model {
 		int res = npu.rknn_inputs_set(1,inputs);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
+	}
+	/**
+	 * Set the outputs to prepare for extraction after rknn_run.<p/>
+	 * There are two ways to store buffers for output data:
+	 * 1) The user allocate and release buffers themselves. In this case, the rknn_output.is_prealloc
+	 * to be set to 1, and the rknn_output.buf points to users allocated buffer;
+	 * 2) The other is allocated by rknn. At this time, the rknn_output .is_prealloc needs to be set to
+	 * 0. After the function is executed, rknn_output.buf will be created and store the output data.
+	 * rknn_output outputs[io_num.n_output];
+	 * for (int i = 0; i < io_num.n_output; i++) {
+	 * 	outputs[i].index = i;
+	 * 	outputs[i].is_prealloc = 0;
+	 * 	outputs[i].want_float = 1;
+	 * }
+	 * ret = rknn_outputs_get(ctx, io_num.n_output, outputs, NULL);
+	 * @param nOutput Number of output buffers from rknn_input_output_num queryIONumber getN_output()
+	 * @param isPrealloc true to honor the above allocation of buffers
+	 * @param wantFloat Force output to floating point
+	 * @return the array of rknn_output output objects set up to call rknn_outputs_get
+	 */
+	public rknn_output[] setOutputs(int nOutput, boolean isPrealloc, boolean wantFloat) {
+		rknn_output[] outputs = new rknn_output[nOutput];
+		for(int i = 0; i < nOutput; i++) {
+			outputs[i] = new rknn_output();
+			outputs[i].setIndex(i);
+			outputs[i].setIs_prealloc(isPrealloc);
+			outputs[i].setWant_float(wantFloat);
+		}
+		return outputs;
 	}
 	/**
 	 * n_dims will be 4 for one input with a 4 element array, and 5 for multiple outputs with 4 element arrays
@@ -162,8 +226,12 @@ public class Model {
 		}
 		System.out.println("Setting inputs...");
 		m.setInputs(widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		System.out.println("Setting up outputs..");
+		// no preallocation of output image buffers, no force floating output
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, false);
 		System.out.println("Preparing to run...");
 		m.npu.rknn_run(null);
+		System.out.println("Getting outputs...");
 		m.destroy();
 	}
 }

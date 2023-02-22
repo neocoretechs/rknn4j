@@ -5,38 +5,35 @@ package com.neocoretechs.rknn4j;
  *
  */
 public class rknn_output {
-	   byte want_float;                                 /* want transfer output data to float */
-	   byte is_prealloc;                                /* whether buf is pre-allocated.
-	                                                       if TRUE, the following variables need to be set.
-	                                                       if FALSE, the following variables do not need to be set. */
-	   int index;                                     	/* the output index. */
-	   long buf;                                        /* the output buf for index.
-	                                                       when is_prealloc = FALSE and rknn_outputs_release called,
-	                                                       this buf pointer will be free and don't use it anymore.
-	                                                     */
-	   int size;                                      /* the size of output buf. */
+	   boolean want_float;                                 	/* transfer output data to float */
+	   boolean is_prealloc;                                	/* whether buf is pre-allocated. if TRUE, the following variables need to be set.
+	                                                       	if FALSE, the following variables do not need to be set. */
+	   int index;                                     		/* the output index. */
+	   byte[] buf;                                        	/* the output buf for index. when is_prealloc = FALSE and rknn_outputs_release called,
+	                                                       	this buf pointer will be freed and unusable.*/
+	   int size;                                      		/* the size of output buf. */
 	/**
 	 * @return the want_float
 	 */
-	public byte getWant_float() {
+	public boolean getWant_float() {
 		return want_float;
 	}
 	/**
 	 * @param want_float the want_float to set
 	 */
-	public void setWant_float(byte want_float) {
+	public void setWant_float(boolean want_float) {
 		this.want_float = want_float;
 	}
 	/**
 	 * @return the is_prealloc
 	 */
-	public byte getIs_prealloc() {
+	public boolean getIs_prealloc() {
 		return is_prealloc;
 	}
 	/**
 	 * @param is_prealloc the is_prealloc to set
 	 */
-	public void setIs_prealloc(byte is_prealloc) {
+	public void setIs_prealloc(boolean is_prealloc) {
 		this.is_prealloc = is_prealloc;
 	}
 	/**
@@ -54,13 +51,13 @@ public class rknn_output {
 	/**
 	 * @return the buf
 	 */
-	public long getBuf() {
+	public byte[] getBuf() {
 		return buf;
 	}
 	/**
 	 * @param buf the buf to set
 	 */
-	public void setBuf(long buf) {
+	public void setBuf(byte[] buf) {
 		this.buf = buf;
 	}
 	/**

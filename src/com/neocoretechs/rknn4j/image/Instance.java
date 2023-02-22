@@ -47,6 +47,36 @@ public class Instance {
 			}
 		}
 	}
+	
+	/** 
+	 * Constructs the Instance from a BufferedImage after resizing
+	 * 
+	 */
+	public Instance(String name, BufferedImage image, String label, int fixWidth, int fixHeight) {
+		this.name = name;
+		this.image = image;
+		this.label = label;
+		this.width = fixWidth;
+		this.height = fixHeight;
+		this.channels = computeChannels(image);
+
+		// Get separate rgb channels.
+		this.red_channel = new int[height][width];
+		this.green_channel = new int[height][width];
+		this.blue_channel = new int[height][width];
+		BufferedImage scaledBI = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = scaledBI.createGraphics();
+		g.drawImage(image, 0, 0, fixWidth, fixHeight, null);
+		g.dispose();
+		for (int row = 0; row < this.height; ++row) {
+			for (int col = 0; col < this.width; ++col) {
+				Color c = new Color(this.image.getRGB(col, row));
+				this.red_channel[row][col] = c.getRed();
+				this.green_channel[row][col] = c.getGreen();
+				this.blue_channel[row][col] = c.getBlue();
+			}
+		}
+	}
 	/**
 	 * RGB 888 left to right, top to bottom
 	 * @return
@@ -219,6 +249,19 @@ public class Instance {
 		}
 	}
 	
+	public static BufferedImage readBufferedImage(String fileName) {
+		File fi = new File(fileName);
+		BufferedImage img = null;
+		System.out.println("Reading "+fi.getName());
+		try {
+				img = ImageIO.read(fi);
+		} catch (IOException e) {
+				e.printStackTrace();
+				return null;
+		}
+		return img;
+	}
+	
 	public static int computeChannels(BufferedImage sourceImage) {
 		switch( sourceImage.getType() ) {
 			case BufferedImage.TYPE_CUSTOM:
@@ -233,6 +276,13 @@ public class Instance {
 			default:
 				throw new IllegalArgumentException("Unsupported image type: " + sourceImage.getType());
 		}
+	}
+	
+	public static int[] computeDimensions(BufferedImage sourceImage) {
+		int[] dims = new int[2];
+		dims[0] = sourceImage.getWidth();
+		dims[1] = sourceImage.getHeight();
+		return dims;
 	}
 	
 	public String getName() {

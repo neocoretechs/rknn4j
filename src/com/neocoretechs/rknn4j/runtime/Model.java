@@ -1,8 +1,10 @@
 package com.neocoretechs.rknn4j.runtime;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 import com.neocoretechs.rknn4j.RKNN;
 import com.neocoretechs.rknn4j.RKNN.rknn_tensor_format;
@@ -77,18 +79,48 @@ public class Model {
 	 * Set the input vector
 	 * @return
 	 */
-	public void setInputs(int width, int height, int channels, byte[] buf) {
+	public void setInputs(int width, int height, int channels, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
 		rknn_input[] inputs = new rknn_input[1];
 		inputs[0] = new rknn_input();
 		inputs[0].setIndex(0);
-		inputs[0].setType(rknn_tensor_type.RKNN_TENSOR_UINT8);
+		inputs[0].setType(type);
 		inputs[0].setSize( width * height * channels);
-		inputs[0].setFmt(rknn_tensor_format.RKNN_TENSOR_NHWC);
-		int res = npu.rknn_inputs_set(0,inputs);
+		inputs[0].setFmt(fmt);
+		inputs[0].setBuf(buf);
+		inputs[0].setPass_through(false);
+		int res = npu.rknn_inputs_set(1,inputs);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
-	
+	/**
+	 * n_dims will be 4 for one input with a 4 element array, and 5 for multiple outputs with 4 element arrays
+	 * the arrays are 1,h,w,channels  or 1,channel,h,w depending on format NCHW or NHWC
+	 * @param inputAttr
+	 * @return
+	 */
+	public static int[] getWidthHeightChannel(rknn_tensor_attr inputAttr) {
+		int[] whc = new int[3]; 
+		switch(inputAttr.getFmt()) {
+			case RKNN_TENSOR_NCHW:
+				whc[0] = inputAttr.getDim(3);
+				whc[1] = inputAttr.getDim(2);
+				whc[2] = inputAttr.getDim(1);
+				return whc;
+			case RKNN_TENSOR_FORMAT_MAX:
+			case RKNN_TENSOR_NC1HWC2:
+				break;
+			case RKNN_TENSOR_NHWC:
+				whc[0] = inputAttr.getDim(2);
+				whc[1] = inputAttr.getDim(1);
+				whc[2] = inputAttr.getDim(3);
+				return whc;
+			case RKNN_TENSOR_UNDEFINED:
+			default:
+				break;
+		}
+		throw new RuntimeException("Unsupported model format");
+	}
+
 	public void destroy() {
 		int res = npu.rknn_destroy();
 		if(res != RKNN.RKNN_SUCC)
@@ -107,18 +139,30 @@ public class Model {
 		rknn_sdk_version sdk = m.querySDK();
 		rknn_input_output_num ioNum = m.queryIONumber();
 		System.out.printf("%s %s%n", sdk, ioNum);
-		Instance image = Instance.readFile(args[1]);
-		m.setInputs(image.getWidth(),image.getHeight(),image.getChannels(),image.getRGB888());
+		BufferedImage bimage = Instance.readBufferedImage(args[1]);
+		Instance image = null;
+		rknn_tensor_attr[] inputAttrs = new rknn_tensor_attr[ioNum.getN_input()];
 		for(int i = 0; i < ioNum.getN_input(); i++) {
-			rknn_tensor_attr inputAttr = m.queryInputAttrs(i);
+			inputAttrs[i] = m.queryInputAttrs(i);
 			System.out.println("Tensor input layer "+i+" attributes:");
-			System.out.println(RKNN.dump_tensor_attr(inputAttr));
+			System.out.println(RKNN.dump_tensor_attr(inputAttrs[i]));
+		}
+		int[] widthHeightChannel = getWidthHeightChannel(inputAttrs[0]);
+		int[] dimsImage = Instance.computeDimensions(bimage);
+		if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
+			System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
+			image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
+		} else {
+			image = new Instance(args[1], bimage, args[1]);
 		}
 		for(int i = 0; i < ioNum.getN_output(); i++) {
 			rknn_tensor_attr outputAttr = m.queryOutputAttrs(i);
 			System.out.println("Tensor output layer "+i+" attributes:");
 			System.out.println(RKNN.dump_tensor_attr(outputAttr));
 		}
+		System.out.println("Setting inputs...");
+		m.setInputs(widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		System.out.println("Preparing to run...");
 		m.npu.rknn_run(null);
 		m.destroy();
 	}

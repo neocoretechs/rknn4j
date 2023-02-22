@@ -157,6 +157,28 @@ public class Model {
 		return outputs;
 	}
 	/**
+	 * Retrieve the outputs from the result of the inference run.
+	 * Performs rknn_outputs_get
+	 * @param nOutputs number outputs expected
+	 * @param outputs array of outputs with index fields instantiated from setOutputs
+	 * @throws RuntimeExcpetion if get fails
+	 */
+	public void getOutputs(int nOutputs, rknn_output[] outputs) {
+		int res = npu.rknn_outputs_get(nOutputs, outputs, null);
+		if(res != RKNN.RKNN_SUCC)
+			throw new RuntimeException(RKNN.get_error_string(res));
+	}
+	
+	/**
+	 * Perform actual inference using initialized model, data, and parameters
+	 * @throws RuntimeException if run fails
+	 */
+	public void run() {
+		int res = npu.rknn_run(null);
+		if(res != RKNN.RKNN_SUCC)
+			throw new RuntimeException(RKNN.get_error_string(res));
+	}
+	/**
 	 * n_dims will be 4 for one input with a 4 element array, and 5 for multiple outputs with 4 element arrays
 	 * the arrays are 1,h,w,channels  or 1,channel,h,w depending on format NCHW or NHWC
 	 * @param inputAttr
@@ -230,8 +252,9 @@ public class Model {
 		// no preallocation of output image buffers, no force floating output
 		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, false);
 		System.out.println("Preparing to run...");
-		m.npu.rknn_run(null);
+		m.run();
 		System.out.println("Getting outputs...");
+		m.getOutputs(ioNum.getN_output(), outputs);
 		m.destroy();
 	}
 }

@@ -221,7 +221,9 @@ public class Model {
 	public static void main(String[] args) throws Exception {
 		Model m = new Model();
 		byte[] model = m.load(args[0]);
+		long tim = System.currentTimeMillis();
 		m.init(model);
+		System.out.println("Init time:"+(System.currentTimeMillis()-tim)+" ms.");
 		rknn_sdk_version sdk = m.querySDK();
 		rknn_input_output_num ioNum = m.queryIONumber();
 		System.out.printf("%s %s%n", sdk, ioNum);
@@ -247,14 +249,22 @@ public class Model {
 			System.out.println(RKNN.dump_tensor_attr(outputAttr));
 		}
 		System.out.println("Setting inputs...");
+		tim = System.currentTimeMillis();
 		m.setInputs(widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		System.out.println("Set inputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Setting up outputs..");
 		// no preallocation of output image buffers, no force floating output
-		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, false);
+		tim = System.currentTimeMillis();
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, true); // last param is wantFloat, to force output to floating
+		System.out.println("Set outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
+		tim = System.currentTimeMillis();
 		m.run();
+		System.out.println("Run time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Getting outputs...");
+		tim = System.currentTimeMillis();
 		m.getOutputs(ioNum.getN_output(), outputs);
+		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		m.destroy();
 	}

@@ -72,4 +72,8 @@ public class rknn_output {
 	public void setSize(int size) {
 		this.size = size;
 	}
+	
+	public String toString() {
+		return String.format("Index=%d want_float=%b is_prealloc=%b buffer is %d which should = %d",index,want_float,is_prealloc,buf.length,size);
+	}
 }

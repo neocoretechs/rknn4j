@@ -255,6 +255,7 @@ public class Model {
 		m.run();
 		System.out.println("Getting outputs...");
 		m.getOutputs(ioNum.getN_output(), outputs);
+		System.out.println("Outputs:"+Arrays.toString(outputs));
 		m.destroy();
 	}
 }

@@ -29,6 +29,11 @@ public class detect_result {
 	public static final int anchor1[] = {30, 61, 62, 45, 59, 119};
 	public static final int anchor2[] = {116, 90, 156, 198, 373, 326};
 	
+	@Override
+	public String toString() {
+		return String.format("Name=%s prop=%f x=%d,y=%d,width=%d,height=%d", name,prop,box.x,box.y,box.width,box.height);
+	}
+	
 	static float CalculateOverlap(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
 		double w = Math.max(0.f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1) + 1.0);
 		double h = Math.max(0.f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1) + 1.0);
@@ -163,7 +168,7 @@ public class detect_result {
 	 * @param threshold Non Maximal Suppression threshold constant to pass to unsigmoid function to determine confidence in box overlap
 	 * @return Count of instances where max probability exceeded NMS threshold
 	 */
-	static int process(byte[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
+	public static int process(byte[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
             ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold) {
 		int    validCount = 0;
 		int    grid_len   = grid_h * grid_w;
@@ -234,7 +239,7 @@ public class detect_result {
 	 * @param scale Used to map input range to output range for quantization of float to INT8
 	 * @return Count of instances where max probability exceeded NMS threshold
 	 */
-	static int process(byte[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
+	public static int process(byte[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
             ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold, int zp, float scale) {
 		int    validCount = 0;
 		int    grid_len   = grid_h * grid_w;
@@ -269,11 +274,13 @@ public class detect_result {
 						for (int k = 1; k < OBJ_CLASS_NUM; ++k) {
 							//int prob = in_ptr[(5 + k) * grid_len];
 							int prob = input[offset+((5 + k) * grid_len)];
+							System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
 								maxClassId    = k;
 								maxClassProbs = prob;
 							}
 						}
+						System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8);
 						if (maxClassProbs>thres_i8){
 							objProbs.add((float)(sigmoid(deqnt_affine_to_f32(maxClassProbs, zp, scale))* sigmoid(deqnt_affine_to_f32(box_confidence, zp, scale))));
 							classId.add(maxClassId);
@@ -316,37 +323,45 @@ public class detect_result {
 	 * @param labels the Class Id labels acquired from whatever source
 	 * @return status of 0 for success, with detect_result_group populated with results array
 	 */
-	static int post_process(byte[] input0, byte[] input1, byte[] input2, int model_in_h, int model_in_w, float conf_threshold,
+	public static int post_process(byte[] input0, byte[] input1, byte[] input2, int model_in_h, int model_in_w, float conf_threshold,
             float nms_threshold, float scale_w, float scale_h, ArrayList<Integer> qnt_zps,
-            ArrayList<Integer> qnt_scales, detect_result_group group, String[] labels) {
+            ArrayList<Float> qnt_scales, detect_result_group group, String[] labels) {
 
-		ArrayList<Float> filterBoxes = new ArrayList<Float>();
-		ArrayList<Float> objProbs = new ArrayList<Float>();
-		ArrayList<Integer> classId = new ArrayList<Integer>();
+		ArrayList<Float> filterBoxes0 = new ArrayList<Float>();
+		ArrayList<Float> objProbs0 = new ArrayList<Float>();
+		ArrayList<Integer> classId0 = new ArrayList<Integer>();
+		
+		ArrayList<Float> filterBoxes1 = new ArrayList<Float>();
+		ArrayList<Float> objProbs1 = new ArrayList<Float>();
+		ArrayList<Integer> classId1 = new ArrayList<Integer>();
+		
+		ArrayList<Float> filterBoxes2 = new ArrayList<Float>();
+		ArrayList<Float> objProbs2 = new ArrayList<Float>();
+		ArrayList<Integer> classId2 = new ArrayList<Integer>();
 
 		// stride 8
 		int stride0     = 8;
 		int grid_h0     = model_in_h / stride0;
 		int grid_w0     = model_in_w / stride0;
 		int validCount0 = 0;
-		validCount0 = process(input0, anchor0, grid_h0, grid_w0, model_in_h, model_in_w, stride0, filterBoxes, objProbs,
-                   classId, conf_threshold, qnt_zps.get(0), qnt_scales.get(0));
+		validCount0 = process(input0, anchor0, grid_h0, grid_w0, model_in_h, model_in_w, stride0, filterBoxes0, objProbs0,
+                   classId0, conf_threshold, qnt_zps.get(0), qnt_scales.get(0));
 
 		// stride 16
 		int stride1     = 16;
 		int grid_h1     = model_in_h / stride1;
 		int grid_w1     = model_in_w / stride1;
 		int validCount1 = 0;
-		validCount1 = process(input1, anchor1, grid_h1, grid_w1, model_in_h, model_in_w, stride1, filterBoxes, objProbs,
-                   classId, conf_threshold, qnt_zps.get(1), qnt_scales.get(1));
+		validCount1 = process(input1, anchor1, grid_h1, grid_w1, model_in_h, model_in_w, stride1, filterBoxes1, objProbs1,
+                   classId1, conf_threshold, qnt_zps.get(1), qnt_scales.get(1));
 
 		// stride 32
 		int stride2     = 32;
 		int grid_h2     = model_in_h / stride2;
 		int grid_w2     = model_in_w / stride2;
 		int validCount2 = 0;
-		validCount2 = process(input2, anchor2, grid_h2, grid_w2, model_in_h, model_in_w, stride2, filterBoxes, objProbs,
-                   classId, conf_threshold, qnt_zps.get(2), qnt_scales.get(2));
+		validCount2 = process(input2, anchor2, grid_h2, grid_w2, model_in_h, model_in_w, stride2, filterBoxes2, objProbs2,
+                   classId2, conf_threshold, qnt_zps.get(2), qnt_scales.get(2));
 
 		int validCount = validCount0 + validCount1 + validCount2;
 		System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
@@ -359,36 +374,59 @@ public class detect_result {
 		for (int i = 0; i < validCount; ++i) {
 			indexArray[i] = i;
 		}
-		int[] objProbsArray =  new int[objProbs.size()];
-		for(int i = 0; i < objProbs.size(); i++) {
-			objProbsArray[i] = objProbs.get(i).intValue();
+		int[] objProbsArray =  new int[objProbs0.size()];
+		int i = 0;
+		for(; i < objProbs0.size(); i++) {
+			objProbsArray[i] = objProbs0.get(i).intValue();
 		}
+		for(; i < objProbs1.size(); i++) {
+			objProbsArray[i] = objProbs1.get(i).intValue();
+		}
+		for(; i < objProbs2.size(); i++) {
+			objProbsArray[i] = objProbs2.get(i).intValue();
+		}
+
 		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
-		float[] filterBoxesArray = new float[filterBoxes.size()];
-		for(int i = 0; i < filterBoxes.size(); i++) {
-			filterBoxesArray[i] = filterBoxes.get(i);
+		float[] filterBoxesArray = new float[validCount];
+		i = 0;
+		for(; i < filterBoxes0.size(); i++) {
+			filterBoxesArray[i] = filterBoxes0.get(i);
 		}
-		int[] classIdArray = new int[classId.size()];
-		for(int i = 0; i < classId.size(); i++) {
-			classIdArray[i] = classId.get(i);
+		for(; i < filterBoxes1.size(); i++) {
+			filterBoxesArray[i] = filterBoxes1.get(i);
 		}
-		for(Integer c : classId) {
-			nms(validCount, filterBoxesArray, classIdArray, indexArray, c.intValue(), nms_threshold);
+		for(; i < filterBoxes2.size(); i++) {
+			filterBoxesArray[i] = filterBoxes2.get(i);
+		}
+		int[] classIdArray = new int[validCount];
+		i = 0;
+		for(; i < classId0.size(); i++) {
+			classIdArray[i] = classId0.get(i);
+		}
+		for(; i < classId1.size(); i++) {
+			classIdArray[i] = classId0.get(i);
+		}
+		for(; i < classId2.size(); i++) {
+			classIdArray[i] = classId0.get(i);
+		}
+		for(int j = 0; j < classIdArray.length; j++) {
+			nms(validCount, filterBoxesArray, classIdArray, indexArray, classIdArray[j], nms_threshold);
 		}
 
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
-		for (int i = 0; i < validCount; ++i) {
+		i = 0;
+		for(; i < validCount; ++i) {
 			if (indexArray[i] == -1) {
 				continue;
 			}
 			int n = indexArray[i];
-			float x1       = filterBoxes.get(n * 4 + 0);
-			float y1       = filterBoxes.get(n * 4 + 1);
-			float x2       = x1 + filterBoxes.get(n * 4 + 2);
-			float y2       = y1 + filterBoxes.get(n * 4 + 3);
-			int   id       = classId.get(n);
-			float obj_conf = objProbs.get(i);
+			float x1       = filterBoxesArray[n * 4 + 0];
+			float y1       = filterBoxesArray[n * 4 + 1];
+			float x2       = x1 + filterBoxesArray[n * 4 + 2];
+			float y2       = y1 + filterBoxesArray[n * 4 + 3];
+			int   id       = classIdArray[n];
+			float obj_conf = objProbsArray[i];
 			detect_result dr = new detect_result();
 			dr.box.x   = (int)(clamp(x1, 0, model_in_w) / scale_w);
 			dr.box.y    = (int)(clamp(y1, 0, model_in_h) / scale_h);
@@ -398,12 +436,14 @@ public class detect_result {
 			dr.name		  = labels[id];
 			groupArray.add(dr);
 
-		// printf("result %2d: (%4d, %4d, %4d, %4d), %s\n", i, group->results[last_count].box.left,
-		// group->results[last_count].box.top,
-		//        group->results[last_count].box.right, group->results[last_count].box.bottom, label);
+		System.out.printf("result %2d: (%4d, %4d, %4d, %4d), %s %s\n", i, dr.box.x,dr.box.y,dr.box.width,dr.box.height,dr.prop,dr.name);
+
 		}
+		//group.id
+		group.count = groupArray.size();
 		group.results = new detect_result[groupArray.size()];
-		for(int i = 0; i < groupArray.size(); i++) {
+		i = 0;
+		for(; i < groupArray.size(); i++) {
 			group.results[i] = groupArray.get(i);
 		}
 		return 0;

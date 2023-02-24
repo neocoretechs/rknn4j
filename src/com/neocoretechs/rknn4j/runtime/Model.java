@@ -2,9 +2,12 @@ package com.neocoretechs.rknn4j.runtime;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import com.neocoretechs.rknn4j.RKNN;
 import com.neocoretechs.rknn4j.RKNN.rknn_tensor_format;
@@ -16,6 +19,8 @@ import com.neocoretechs.rknn4j.rknn_sdk_version;
 import com.neocoretechs.rknn4j.rknn_tensor_attr;
 import com.neocoretechs.rknn4j.rknpu2;
 import com.neocoretechs.rknn4j.image.Instance;
+import com.neocoretechs.rknn4j.image.detect_result;
+import com.neocoretechs.rknn4j.image.detect_result_group;
 /**
  * Java bindings to RockChip RK3588 Neural Processing Unit SDK.
  * The business model, supporting the neural network models.
@@ -37,7 +42,14 @@ public class Model {
 	public byte[] load(String file) throws IOException  {
 		return Files.readAllBytes(Paths.get(file));
 	}
-	
+	public static String[] loadLines(String file) throws IOException {
+		List<String> lines = Files.readAllLines(Paths.get(file), StandardCharsets.UTF_8);
+		String[] slines = new String[lines.size()];
+		for(int i = 0; i < slines.length; i++) {
+			slines[i] = lines.get(i);
+		}
+		return slines;
+	}
 	/**
 	 * Initialize the given model. this is always step 1.
 	 * Performs rknn_init
@@ -243,10 +255,12 @@ public class Model {
 		} else {
 			image = new Instance(args[1], bimage, args[1]);
 		}
+		ArrayList<rknn_tensor_attr> tensorAttrs = new ArrayList<rknn_tensor_attr>();
 		for(int i = 0; i < ioNum.getN_output(); i++) {
 			rknn_tensor_attr outputAttr = m.queryOutputAttrs(i);
 			System.out.println("Tensor output layer "+i+" attributes:");
 			System.out.println(RKNN.dump_tensor_attr(outputAttr));
+			tensorAttrs.add(outputAttr);
 		}
 		System.out.println("Setting inputs...");
 		tim = System.currentTimeMillis();
@@ -255,7 +269,7 @@ public class Model {
 		System.out.println("Setting up outputs..");
 		// no preallocation of output image buffers, no force floating output
 		tim = System.currentTimeMillis();
-		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, true); // last param is wantFloat, to force output to floating
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, false); // last param is wantFloat, to force output to floating
 		System.out.println("Set outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
 		tim = System.currentTimeMillis();
@@ -267,5 +281,19 @@ public class Model {
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		m.destroy();
+		detect_result_group drg = new detect_result_group();
+		String[] labels = loadLines("model/coco_80_labels_list.txt");
+		System.out.println("Total category labels="+labels.length);
+		ArrayList<Float> scales = new ArrayList<Float>();
+		ArrayList<Integer> zps = new ArrayList<Integer>();
+		for(int i = 0; i < ioNum.getN_output(); i++) {
+			rknn_tensor_attr outputAttr = tensorAttrs.get(i);
+			zps.add(outputAttr.getZp());
+			scales.add(outputAttr.getScale());
+		}
+		detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
+				widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
+				1.0f, 1.0f, zps, scales, drg, labels);
+		System.out.println("Detected Result Group:"+drg);
 	}
 }

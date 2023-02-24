@@ -1,6 +1,8 @@
 package com.neocoretechs.rknn4j.runtime;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -8,6 +10,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import javax.imageio.ImageIO;
 
 import com.neocoretechs.rknn4j.RKNN;
 import com.neocoretechs.rknn4j.RKNN.rknn_tensor_format;
@@ -252,6 +256,7 @@ public class Model {
 		if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
 			System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
 			image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
+			//ImageIO.write(image.getImage(), "jpg", new File("resizedImage.jpg"));
 		} else {
 			image = new Instance(args[1], bimage, args[1]);
 		}
@@ -280,7 +285,6 @@ public class Model {
 		m.getOutputs(ioNum.getN_output(), outputs);
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
-		m.destroy();
 		detect_result_group drg = new detect_result_group();
 		String[] labels = loadLines("model/coco_80_labels_list.txt");
 		System.out.println("Total category labels="+labels.length);
@@ -295,5 +299,7 @@ public class Model {
 				widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
 				1.0f, 1.0f, zps, scales, drg, labels);
 		System.out.println("Detected Result Group:"+drg);
+		image.drawDetections(drg);
+		m.destroy();
 	}
 }

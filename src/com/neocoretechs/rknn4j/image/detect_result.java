@@ -2,6 +2,12 @@ package com.neocoretechs.rknn4j.image;
 
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Postprocessing for the RockChip RK3588 NPU output models.<p/>
@@ -28,6 +34,10 @@ public class detect_result {
 	public static final int anchor0[] = {10, 13, 16, 30, 33, 23};
 	public static final int anchor1[] = {30, 61, 62, 45, 59, 119};
 	public static final int anchor2[] = {116, 90, 156, 198, 373, 326};
+	
+	public detect_result() {
+		box = new Rectangle();
+	}
 	
 	@Override
 	public String toString() {
@@ -271,17 +281,17 @@ public class detect_result {
 						//int maxClassProbs = in_ptr[5 * grid_len];
 						int maxClassProbs = input[offset + (5 * grid_len)];
 						int    maxClassId    = 0;
-						for (int k = 1; k < OBJ_CLASS_NUM; ++k) {
+						for (int k = 1; k < OBJ_CLASS_NUM; k++) {
 							//int prob = in_ptr[(5 + k) * grid_len];
 							int prob = input[offset+((5 + k) * grid_len)];
-							System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
+								System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 								maxClassId    = k;
 								maxClassProbs = prob;
 							}
 						}
 						System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8);
-						if (maxClassProbs>thres_i8){
+						if (maxClassProbs > thres_i8){
 							objProbs.add((float)(sigmoid(deqnt_affine_to_f32(maxClassProbs, zp, scale))* sigmoid(deqnt_affine_to_f32(box_confidence, zp, scale))));
 							classId.add(maxClassId);
 							validCount++;
@@ -385,12 +395,19 @@ public class detect_result {
 		for(int j = 0; j < objProbs2.size(); j++) {
 			objProbsArray[i++] = objProbs2.get(j).intValue();
 		}
+		
+		System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+		System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
+
 		System.out.println("Quicksort..");
 		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
 		System.out.println("Quicksort done");
 		
-		float[] filterBoxesArray = new float[validCount];
-		System.out.println("Filterboxes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
+		System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+		System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		
+		float[] filterBoxesArray = new float[validCount*4];
+		System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
 		i = 0;
 		for(int j = 0; j < filterBoxes0.size(); j++) {
 			filterBoxesArray[i++] = filterBoxes0.get(j);
@@ -403,7 +420,7 @@ public class detect_result {
 		}
 		
 		int[] classIdArray = new int[validCount];
-		System.out.println("ClassId 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
+		System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
 		i = 0;
 		for(int j = 0; j < classId0.size(); j++) {
 			classIdArray[i++] = classId0.get(j);
@@ -414,11 +431,22 @@ public class detect_result {
 		for(int j = 0; j < classId2.size(); j++) {
 			classIdArray[i++] = classId2.get(j);
 		}
+		System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
+		System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+
+		//Set<Integer> classSet = new LinkedHashSet<Integer>();
+		//Arrays.stream(classIdArray).boxed().sorted().forEach(e->classSet.add(e));
+		int[] classSet = Arrays.copyOf(classIdArray, classIdArray.length);
+		Arrays.sort(classSet);
 		System.out.println("Arrays loaded");
-		for(int j = 0; j < classIdArray.length; j++) {
-			nms(validCount, filterBoxesArray, classIdArray, indexArray, classIdArray[j], nms_threshold);
+		for(Integer c: classSet) {
+			System.out.println("NMS for "+c);
+			nms(validCount, filterBoxesArray, classIdArray, indexArray, c, nms_threshold);
 		}
-		System.out.println("Maximal suppression done");
+		System.out.println("Maximal suppression done indexArray:"+Arrays.toString(indexArray));
+		System.out.println("Maximal suppression done classIdArray:"+Arrays.toString(classIdArray));
+		System.out.println("Maximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+	
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
 		i = 0;
@@ -427,12 +455,14 @@ public class detect_result {
 				continue;
 			}
 			int n = indexArray[i];
+			System.out.println("IndexArray "+i+" n="+n);
 			float x1       = filterBoxesArray[n * 4 + 0];
 			float y1       = filterBoxesArray[n * 4 + 1];
 			float x2       = x1 + filterBoxesArray[n * 4 + 2];
 			float y2       = y1 + filterBoxesArray[n * 4 + 3];
 			int   id       = classIdArray[n];
 			float obj_conf = objProbsArray[i];
+			System.out.println("x1="+x1+" y1="+y1+" x2="+x2+" y2="+y2+" id="+id+" obj_conf="+obj_conf);
 			detect_result dr = new detect_result();
 			dr.box.x   = (int)(clamp(x1, 0, model_in_w) / scale_w);
 			dr.box.y    = (int)(clamp(y1, 0, model_in_h) / scale_h);

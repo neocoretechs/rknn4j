@@ -1,6 +1,8 @@
 package com.neocoretechs.rknn4j.image;
 
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -54,21 +56,24 @@ public class Instance {
 	 */
 	public Instance(String name, BufferedImage image, String label, int fixWidth, int fixHeight) {
 		this.name = name;
-		this.image = image;
 		this.label = label;
 		this.width = fixWidth;
 		this.height = fixHeight;
-		this.channels = computeChannels(image);
 
 		// Get separate rgb channels.
 		this.red_channel = new int[height][width];
 		this.green_channel = new int[height][width];
 		this.blue_channel = new int[height][width];
-		BufferedImage scaledBI = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
-		Graphics2D g = scaledBI.createGraphics();
-		g.drawImage(image, 0, 0, fixWidth, fixHeight, null);
+		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = this.image.createGraphics();
+		while(!g.drawImage(image, 0, 0, fixWidth, fixHeight, null)) {
+			try {
+				System.out.println("Wait for image...");
+				Thread.sleep(1);
+			} catch (InterruptedException e) {}
+		}
 		g.dispose();
-		this.image = scaledBI;
+		this.channels = computeChannels(this.image);
 		for (int row = 0; row < this.height; ++row) {
 			for (int col = 0; col < this.width; ++col) {
 				Color c = new Color(this.image.getRGB(col, row));
@@ -96,23 +101,19 @@ public class Instance {
 	
 	public static Instance readFile(String fileName, int fixWidth, int fixHeight) {
 		File fi = new File(fileName);
-		BufferedImage img = null, scaledBI = null;
+		BufferedImage img = null;
 		try {
 			System.out.println("Reading "+fi.getName());
 			img = ImageIO.read(fi);
 			String name = fi.getName();
-			// Resize the image if requested. 
+			// Resize the image if requested.
 			if (img.getHeight() != fixHeight || img.getWidth() != fixWidth) {
-				scaledBI = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
-				Graphics2D g = scaledBI.createGraphics();
-				g.drawImage(img, 0, 0, fixWidth, fixHeight, null);
-				g.dispose();
+				return new Instance(name, img, name, fixWidth, fixHeight);
 			}		
-			Instance instance = new Instance(fi.getName(), scaledBI == null ? img : scaledBI, name);
-			return instance;
+			return new Instance(name, img, name);
 
 		} catch (IOException e) {
-			System.err.println("Error: cannot load in the image file");
+			System.err.println("Error: cannot load the image file");
 		}
 		return null;
 	}
@@ -125,10 +126,9 @@ public class Instance {
 			img = ImageIO.read(fi);
 			String name = fi.getName();
 			// Resize the image if requested. 
-			Instance instance = new Instance(fi.getName(), img, name);
-			return instance;
+			return new Instance(name, img, name);
 		} catch (IOException e) {
-			System.err.println("Error: cannot load in the image file");
+			System.err.println("Error: cannot load the image file");
 		}
 		return null;
 	}
@@ -284,6 +284,22 @@ public class Instance {
 		dims[0] = sourceImage.getWidth();
 		dims[1] = sourceImage.getHeight();
 		return dims;
+	}
+	
+	public void drawDetections(detect_result_group detections) {
+		Graphics graphics = image.getGraphics();
+		for(detect_result dr: detections.results) {
+			graphics.setColor(Color.CYAN);
+			graphics.drawRect(dr.box.x, dr.box.y, dr.box.x+dr.box.width, dr.box.y+dr.box.height);
+			graphics.setColor(Color.BLACK);
+			graphics.setFont(new Font("Arial Black", Font.BOLD, 20));
+			graphics.drawString(dr.name, dr.box.x, dr.box.y);
+		}
+		try {
+			ImageIO.write(image, "jpg", new File("detections.jpg"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public String getName() {

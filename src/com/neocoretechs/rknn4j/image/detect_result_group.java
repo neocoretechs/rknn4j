@@ -6,6 +6,9 @@ public class detect_result_group {
 	int id;
 	int count;
 	detect_result results[];
+	public detect_result_group() {	
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder(id);

@@ -374,45 +374,51 @@ public class detect_result {
 		for (int i = 0; i < validCount; ++i) {
 			indexArray[i] = i;
 		}
-		int[] objProbsArray =  new int[objProbs0.size()];
+		int[] objProbsArray =  new int[validCount];
 		int i = 0;
-		for(; i < objProbs0.size(); i++) {
-			objProbsArray[i] = objProbs0.get(i).intValue();
+		for(int j = 0; j < objProbs0.size(); j++) {
+			objProbsArray[i++] = objProbs0.get(j).intValue();
 		}
-		for(; i < objProbs1.size(); i++) {
-			objProbsArray[i] = objProbs1.get(i).intValue();
+		for(int j = 0; j < objProbs1.size(); j++) {
+			objProbsArray[i++] = objProbs1.get(j).intValue();
 		}
-		for(; i < objProbs2.size(); i++) {
-			objProbsArray[i] = objProbs2.get(i).intValue();
+		for(int j = 0; j < objProbs2.size(); j++) {
+			objProbsArray[i++] = objProbs2.get(j).intValue();
 		}
-
+		System.out.println("Quicksort..");
 		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
+		System.out.println("Quicksort done");
+		
 		float[] filterBoxesArray = new float[validCount];
+		System.out.println("Filterboxes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
 		i = 0;
-		for(; i < filterBoxes0.size(); i++) {
-			filterBoxesArray[i] = filterBoxes0.get(i);
+		for(int j = 0; j < filterBoxes0.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes0.get(j);
 		}
-		for(; i < filterBoxes1.size(); i++) {
-			filterBoxesArray[i] = filterBoxes1.get(i);
+		for(int j = 0; j < filterBoxes1.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes1.get(j);
 		}
-		for(; i < filterBoxes2.size(); i++) {
-			filterBoxesArray[i] = filterBoxes2.get(i);
+		for(int j = 0; j < filterBoxes2.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes2.get(j);
 		}
+		
 		int[] classIdArray = new int[validCount];
+		System.out.println("ClassId 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
 		i = 0;
-		for(; i < classId0.size(); i++) {
-			classIdArray[i] = classId0.get(i);
+		for(int j = 0; j < classId0.size(); j++) {
+			classIdArray[i++] = classId0.get(j);
 		}
-		for(; i < classId1.size(); i++) {
-			classIdArray[i] = classId0.get(i);
+		for(int j = 0; j < classId1.size(); j++) {
+			classIdArray[i++] = classId1.get(j);
 		}
-		for(; i < classId2.size(); i++) {
-			classIdArray[i] = classId0.get(i);
+		for(int j = 0; j < classId2.size(); j++) {
+			classIdArray[i++] = classId2.get(j);
 		}
+		System.out.println("Arrays loaded");
 		for(int j = 0; j < classIdArray.length; j++) {
 			nms(validCount, filterBoxesArray, classIdArray, indexArray, classIdArray[j], nms_threshold);
 		}
-
+		System.out.println("Maximal suppression done");
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
 		i = 0;

@@ -236,6 +236,7 @@ public class Model {
 	 */
 	public static void main(String[] args) throws Exception {
 		Model m = new Model();
+		boolean wantFloat = false;
 		byte[] model = m.load(args[0]);
 		long tim = System.currentTimeMillis();
 		m.init(model);
@@ -253,6 +254,8 @@ public class Model {
 		}
 		int[] widthHeightChannel = getWidthHeightChannel(inputAttrs[0]);
 		int[] dimsImage = Instance.computeDimensions(bimage);
+	 	float scale_w = (float)widthHeightChannel[0] / (float)dimsImage[0];
+	  	float scale_h = (float)widthHeightChannel[1] / (float)dimsImage[1];
 		if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
 			System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
 			image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
@@ -274,7 +277,7 @@ public class Model {
 		System.out.println("Setting up outputs..");
 		// no preallocation of output image buffers, no force floating output
 		tim = System.currentTimeMillis();
-		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, false); // last param is wantFloat, to force output to floating
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
 		System.out.println("Set outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
 		tim = System.currentTimeMillis();
@@ -288,16 +291,22 @@ public class Model {
 		detect_result_group drg = new detect_result_group();
 		String[] labels = loadLines("model/coco_80_labels_list.txt");
 		System.out.println("Total category labels="+labels.length);
-		ArrayList<Float> scales = new ArrayList<Float>();
-		ArrayList<Integer> zps = new ArrayList<Integer>();
-		for(int i = 0; i < ioNum.getN_output(); i++) {
-			rknn_tensor_attr outputAttr = tensorAttrs.get(i);
-			zps.add(outputAttr.getZp());
-			scales.add(outputAttr.getScale());
-		}
-		detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
+		if(wantFloat) {
+			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
+					widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
+					scale_w, scale_h, drg, labels);
+		} else {
+			ArrayList<Float> scales = new ArrayList<Float>();
+			ArrayList<Integer> zps = new ArrayList<Integer>();
+			for(int i = 0; i < ioNum.getN_output(); i++) {
+				rknn_tensor_attr outputAttr = tensorAttrs.get(i);
+				zps.add(outputAttr.getZp());
+				scales.add(outputAttr.getScale());
+			}
+			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
 				widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
-				1.0f, 1.0f, zps, scales, drg, labels);
+				scale_w, scale_h, zps, scales, drg, labels);
+		}
 		System.out.println("Detected Result Group:"+drg);
 		image.drawDetections(drg);
 		m.destroy();

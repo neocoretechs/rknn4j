@@ -291,9 +291,9 @@ public class Instance {
 		for(detect_result dr: detections.results) {
 			graphics.setColor(Color.CYAN);
 			graphics.drawRect(dr.box.x, dr.box.y, dr.box.x+dr.box.width, dr.box.y+dr.box.height);
-			graphics.setColor(Color.BLACK);
+			graphics.setColor(Color.YELLOW);
 			graphics.setFont(new Font("Arial Black", Font.BOLD, 20));
-			graphics.drawString(dr.name, dr.box.x, dr.box.y);
+			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.x, dr.box.y);
 		}
 		try {
 			ImageIO.write(image, "jpg", new File("detections.jpg"));

@@ -287,6 +287,8 @@ public class Instance {
 	}
 	
 	public void drawDetections(detect_result_group detections) {
+		if(detections == null || detections.results == null)
+			return;
 		Graphics graphics = image.getGraphics();
 		for(detect_result dr: detections.results) {
 			graphics.setColor(Color.CYAN);

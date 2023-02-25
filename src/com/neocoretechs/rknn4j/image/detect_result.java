@@ -279,13 +279,14 @@ public class detect_result {
 						for (int k = 1; k < OBJ_CLASS_NUM; k++) {
 							//int prob = in_ptr[(5 + k) * grid_len];
 							int prob = input[offset+((5 + k) * grid_len)];
+							System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
-								System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
+								System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 								maxClassId    = k;
 								maxClassProbs = prob;
 							}
 						}
-						System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8+" box_conf="+box_confidence);
+						System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8+" box_conf="+box_confidence+" maxClassId="+maxClassId);
 						if (maxClassProbs > thres_i8){
 							float fProb = (float)(sigmoid(deqnt_affine_to_f32(maxClassProbs, zp, scale)));
 							float boxConf = (float)(sigmoid(deqnt_affine_to_f32(box_confidence, zp, scale)));

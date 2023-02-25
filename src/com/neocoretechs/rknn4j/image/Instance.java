@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -65,8 +66,9 @@ public class Instance {
 		this.green_channel = new int[height][width];
 		this.blue_channel = new int[height][width];
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
+		Image i = image.getScaledInstance(fixWidth, fixHeight, Image.SCALE_AREA_AVERAGING);
 		Graphics2D g = this.image.createGraphics();
-		while(!g.drawImage(image, 0, 0, fixWidth, fixHeight, null)) {
+		while(!g.drawImage(i, 0, 0, fixWidth, fixHeight, null)) {
 			try {
 				System.out.println("Wait for image...");
 				Thread.sleep(1);

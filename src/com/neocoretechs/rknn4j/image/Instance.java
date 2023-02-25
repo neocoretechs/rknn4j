@@ -6,6 +6,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -24,8 +25,8 @@ public class Instance {
 	private String name;
 	private int width, height, channels;
 	
-	// Separate rgb channels.
-	private int[][] red_channel, green_channel, blue_channel, gray_image;
+	private byte[] imageByteArray;
+	private int[][] gray_image;
 
 	/** Constructs the Instance from a BufferedImage. */
 	public Instance(String name, BufferedImage image, String label) {
@@ -35,20 +36,16 @@ public class Instance {
 		this.width = image.getWidth();
 		this.height = image.getHeight();
 		this.channels = computeChannels(image);
-
-		// Get separate rgb channels.
-		this.red_channel = new int[height][width];
-		this.green_channel = new int[height][width];
-		this.blue_channel = new int[height][width];
-
+		ByteBuffer bb = ByteBuffer.allocate(this.width*this.height*3);
 		for (int row = 0; row < this.height; ++row) {
 			for (int col = 0; col < this.width; ++col) {
 				Color c = new Color(this.image.getRGB(col, row));
-				this.red_channel[row][col] = c.getRed();
-				this.green_channel[row][col] = c.getGreen();
-				this.blue_channel[row][col] = c.getBlue();
+				bb.put((byte)c.getRed());
+				bb.put((byte)c.getGreen());
+				bb.put((byte)c.getBlue());
 			}
 		}
+		this.imageByteArray = bb.array();
 	}
 	
 	/** 
@@ -61,10 +58,7 @@ public class Instance {
 		this.width = fixWidth;
 		this.height = fixHeight;
 
-		// Get separate rgb channels.
-		this.red_channel = new int[height][width];
-		this.green_channel = new int[height][width];
-		this.blue_channel = new int[height][width];
+
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
 		Image i = image.getScaledInstance(fixWidth, fixHeight, Image.SCALE_AREA_AVERAGING);
 		Graphics2D g = this.image.createGraphics();
@@ -76,29 +70,31 @@ public class Instance {
 		}
 		g.dispose();
 		this.channels = computeChannels(this.image);
+		ByteBuffer bb = ByteBuffer.allocate(this.width*this.height*3);
 		for (int row = 0; row < this.height; ++row) {
 			for (int col = 0; col < this.width; ++col) {
 				Color c = new Color(this.image.getRGB(col, row));
-				this.red_channel[row][col] = c.getRed();
-				this.green_channel[row][col] = c.getGreen();
-				this.blue_channel[row][col] = c.getBlue();
+				bb.put((byte)c.getRed());
+				bb.put((byte)c.getGreen());
+				bb.put((byte)c.getBlue());
 			}
 		}
+		this.imageByteArray = bb.array();
 	}
 	/**
 	 * RGB 888 left to right, top to bottom
 	 * @return
 	 */
 	public byte[] getRGB888() {
-		ByteBuffer bb = ByteBuffer.allocate(getWidth()*getHeight()*3);
-		for (int row = 0; row < this.height; ++row) {
-			for (int col = 0; col < this.width; ++col) {
-				bb.put((byte)(this.red_channel[row][col] & 255));
-				bb.put((byte)(this.green_channel[row][col] & 255));
-				bb.put((byte)(this.blue_channel[row][col] & 255));
-			}
-		}
-		return bb.array();
+		//ByteBuffer bb = ByteBuffer.allocate(getWidth()*getHeight()*3);
+		//for (int row = 0; row < this.height; ++row) {
+		//	for (int col = 0; col < this.width; ++col) {
+		//		bb.put((byte)(this.red_channel[row][col] & 255));
+		//		bb.put((byte)(this.green_channel[row][col] & 255));
+		//		bb.put((byte)(this.blue_channel[row][col] & 255));
+		//	}
+		//}
+		return imageByteArray;
 	}
 	
 	public static Instance readFile(String fileName, int fixWidth, int fixHeight) {
@@ -135,26 +131,6 @@ public class Instance {
 		return null;
 	}
 
-	/** Construct the Instance from a 3D array. */
-	public Instance(int[][][] image, String label) {
-		this.label = label;
-		this.height = image[0].length;
-		this.width = image[0][0].length;
-		
-		this.red_channel = image[0];
-		this.green_channel = image[1];
-		this.blue_channel = image[2];
-		if (image.length == 4) {
-			this.gray_image = image[3];
-		} else {
-			this.gray_image = new int[this.height][this.width];
-			for (int i = 0; i < this.height; i++) {
-				for (int j = 0; j < this.width; j++) {
-					this.gray_image[i][j] = (image[0][i][j] + image[1][i][j] + image[2][i][j]) / 3;
-				}
-			}
-		}
-	}
 
 	public BufferedImage getImage() {
 		return image;
@@ -164,21 +140,7 @@ public class Instance {
 		return channels;
 	}
 	
-	/** Gets separate red channel image. */
-	public int[][] getRedChannel() {
-		return red_channel;
-	}
-
-	/** Gets separate green channel image. */
-	public int[][] getGreenChannel() {
-		return green_channel;
-	}
-
-	/** Gets separate blue channel image. */
-	public int[][] getBlueChannel() {
-		return blue_channel;
-	}
-
+	
 	/** Gets the gray scale image. */
 	public int[][] getGrayImage() {
 		if(gray_image == null) {
@@ -252,6 +214,57 @@ public class Instance {
 		}
 	}
 	
+	/**
+	 * Fill the data array with grayscale adjusted image data from sourceImage
+	 */
+	public static byte[] readRGB(BufferedImage sourceImage) {
+		ByteBuffer bb = ByteBuffer.allocate(sourceImage.getWidth()*sourceImage.getHeight()*3);
+		int type = sourceImage.getType();
+		if (type == BufferedImage.TYPE_CUSTOM || type == BufferedImage.TYPE_INT_RGB || type == BufferedImage.TYPE_INT_ARGB) {
+			int[] pixels = (int[]) sourceImage.getData().getDataElements(0, 0, sourceImage.getWidth(), sourceImage.getHeight(), null);
+			for (int i = 0; i < pixels.length; i++) {
+				int p = pixels[i];
+				int r = (p & 0xff0000) >> 16;
+				int g = (p & 0xff00) >> 8;
+				int b = p & 0xff;
+				bb.put((byte)r);
+				bb.put((byte)g);
+				bb.put((byte)b);
+			}
+		} else if (type == BufferedImage.TYPE_BYTE_GRAY) {
+			byte[] pixels = (byte[]) sourceImage.getData().getDataElements(0, 0, sourceImage.getWidth(), sourceImage.getHeight(), null);
+			for (int i = 0; i < pixels.length; i++) {
+				int rgb = (pixels[i] & 0xff);
+				bb.put((byte)rgb);
+				bb.put((byte)rgb);
+				bb.put((byte)rgb);
+			}
+		} else if (type == BufferedImage.TYPE_USHORT_GRAY) {
+			short[] pixels = (short[]) sourceImage.getData().getDataElements(0, 0, sourceImage.getWidth(), sourceImage.getHeight(), null);
+			for (int i = 0; i < pixels.length; i++) {
+				int rgb = (pixels[i] & 0xffff) / 256;
+				bb.put((byte)rgb);
+				bb.put((byte)rgb);
+				bb.put((byte)rgb);
+			}
+		} else if (type == BufferedImage.TYPE_3BYTE_BGR) {
+            byte[] pixels = (byte[]) sourceImage.getData().getDataElements(0, 0, sourceImage.getWidth(), sourceImage.getHeight(), null);
+            int offset = 0;
+            int index = 0;
+            for (int i = 0; i < pixels.length; i+=3) {
+                int b = pixels[offset++] & 0xff;
+                int g = pixels[offset++] & 0xff;
+                int r = pixels[offset++] & 0xff;
+    			bb.put((byte)r);
+				bb.put((byte)g);
+				bb.put((byte)b);
+            }
+        } else {
+			throw new IllegalArgumentException("Unsupported image type: " + type);
+		}
+		return bb.array();
+	}
+
 	public static BufferedImage readBufferedImage(String fileName) {
 		File fi = new File(fileName);
 		BufferedImage img = null;

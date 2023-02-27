@@ -1,6 +1,5 @@
 package com.neocoretechs.rknn4j.image;
 
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -36,7 +35,14 @@ public class detect_result {
 	
 	@Override
 	public String toString() {
-		return String.format("Name=%s probability=%f x=%d,y=%d,width=%d,height=%d", name,probability,box.x,box.y,box.width,box.height);
+		return String.format("Name=%s probability=%f x=%d,y=%d,width=%d,height=%d", name,probability,box.xmin,box.ymin,box.xmax,box.ymax);
+	}
+	
+	static class Rectangle {
+		int xmin;
+		int ymin;
+		int xmax;
+		int ymax;
 	}
 	
 	static float CalculateOverlap(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
@@ -357,15 +363,15 @@ public class detect_result {
 			float obj_conf = objProbsArray[i];
 			System.out.println("x1="+x1+" y1="+y1+" x2="+x2+" y2="+y2+" id="+id+" obj_conf="+obj_conf);
 			detect_result dr = new detect_result();
-			dr.box.x   = (int)(clamp(x1, 0, model_in_w) / scale_w);
-			dr.box.y    = (int)(clamp(y1, 0, model_in_h) / scale_h);
-			dr.box.width  = (int)(clamp(x2, 0, model_in_w) / scale_w);
-			dr.box.height = (int)(clamp(y2, 0, model_in_h) / scale_h);
+			dr.box.xmin   = (int)(clamp(x1, 0, model_in_w) / scale_w);
+			dr.box.ymin    = (int)(clamp(y1, 0, model_in_h) / scale_h);
+			dr.box.xmax  = (int)(clamp(x2, 0, model_in_w) / scale_w);
+			dr.box.ymax = (int)(clamp(y2, 0, model_in_h) / scale_h);
 			dr.probability       = obj_conf;
 			dr.name		  = labels[id];
 			groupArray.add(dr);
 
-		System.out.printf("result %2d: (%4d, %4d, %4d, %4d), %s %s\n", i, dr.box.x,dr.box.y,dr.box.width,dr.box.height,dr.probability,dr.name);
+		System.out.printf("result %2d: (%4d, %4d, %4d, %4d), %s %s\n", i, dr.box.xmin,dr.box.ymin,dr.box.xmax,dr.box.ymax,dr.probability,dr.name);
 
 		}
 		//group.id

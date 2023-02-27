@@ -307,10 +307,10 @@ public class Instance {
 		Graphics graphics = image.getGraphics();
 		for(detect_result dr: detections.results) {
 			graphics.setColor(Color.CYAN);
-			graphics.drawRect(dr.box.x, dr.box.y, dr.box.x+dr.box.width, dr.box.y+dr.box.height);
+			graphics.drawRect(dr.box.xmin, dr.box.ymin, dr.box.xmax, dr.box.ymax);
 			graphics.setColor(Color.YELLOW);
 			graphics.setFont(new Font("Arial Black", Font.BOLD, 20));
-			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.x, dr.box.y);
+			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
 		}
 		try {
 			ImageIO.write(image, "jpg", new File("detections.jpg"));

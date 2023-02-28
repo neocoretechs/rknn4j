@@ -2,6 +2,7 @@ package com.neocoretechs.rknn4j.runtime;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -254,15 +255,18 @@ public class Model {
 		}
 		int[] widthHeightChannel = getWidthHeightChannel(inputAttrs[0]);
 		int[] dimsImage = Instance.computeDimensions(bimage);
-	 	float scale_w = (float)widthHeightChannel[0] / (float)dimsImage[0];
-	  	float scale_h = (float)widthHeightChannel[1] / (float)dimsImage[1];
-		if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
-			System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
-			image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
+	 	float scale_w = 1.0f;//(float)widthHeightChannel[0] / (float)dimsImage[0];
+	  	float scale_h = 1.0f;//(float)widthHeightChannel[1] / (float)dimsImage[1];
+	  	File fi = new File(args[1]);
+	  	byte[] imageInByte = Files.readAllBytes(fi.toPath());
+	  	image = new Instance(args[1],dimsImage[0],dimsImage[1],widthHeightChannel[2],imageInByte,widthHeightChannel[0],widthHeightChannel[1],args[1]);
+		//if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
+		//	System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
+		//	image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
 			//ImageIO.write(image.getImage(), "jpg", new File("resizedImage.jpg"));
-		} else {
-			image = new Instance(args[1], bimage, args[1]);
-		}
+		//} else {
+		//	image = new Instance(args[1], bimage, args[1]);
+		//}
 		ArrayList<rknn_tensor_attr> tensorAttrs = new ArrayList<rknn_tensor_attr>();
 		for(int i = 0; i < ioNum.getN_output(); i++) {
 			rknn_tensor_attr outputAttr = m.queryOutputAttrs(i);

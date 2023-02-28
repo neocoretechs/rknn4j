@@ -5,7 +5,12 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+import java.awt.image.DataBufferInt;
+import java.awt.image.Raster;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -47,7 +52,32 @@ public class Instance {
 		}
 		this.imageByteArray = bb.array();
 	}
-	
+	/** Constructs the Instance from a byte array. */
+	public Instance(String name, int width, int height, int channels, byte[] rawImage, int fixWidth, int fixHeight, String label) {
+		this.name = name;
+		this.label = label;
+		this.width = fixWidth;
+		this.height = fixHeight;
+		this.channels = channels;
+		this.imageByteArray = getRGB(rawImage, width, height, channels, fixWidth, fixHeight);
+		if(this.imageByteArray == null)
+			throw new RuntimeException("Image resize error");
+		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
+	    final ByteBuffer bb = ByteBuffer.wrap(this.imageByteArray);//.order(ByteOrder.LITTLE_ENDIAN);
+	    final int[] ret = new int[this.imageByteArray.length / 3];
+	    int iret = 0;
+		for (int row = 0; row < fixHeight; ++row) {
+			for (int col = 0; col < fixWidth; ++col) {
+				int r= Byte.toUnsignedInt(bb.get());
+				int g= Byte.toUnsignedInt(bb.get());
+				int b= Byte.toUnsignedInt(bb.get());
+				//System.out.println("row="+row+" col="+col+" r="+r+" g="+g+" b="+b);
+				Color c = new Color(r, g, b);
+				ret[iret++] = c.getRGB();
+			}
+		}
+	    this.image.setData(Raster.createRaster(this.image.getSampleModel(), new DataBufferInt(ret, ret.length), new Point() ) );
+	}
 	/** 
 	 * Constructs the Instance from a BufferedImage after resizing
 	 * 
@@ -341,4 +371,6 @@ public class Instance {
 	public String toString() {
 		return image.toString()+" "+label;
 	}
+	
+	public native byte[] getRGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
 }

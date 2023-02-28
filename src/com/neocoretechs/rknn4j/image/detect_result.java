@@ -35,7 +35,7 @@ public class detect_result {
 	
 	@Override
 	public String toString() {
-		return String.format("Name=%s probability=%f x=%d,y=%d,width=%d,height=%d", name,probability,box.xmin,box.ymin,box.xmax,box.ymax);
+		return String.format("Name=%s probability=%f xmin=%d,ymin=%d,xmax=%d,ymax=%d", name,probability,box.xmin,box.ymin,box.xmax,box.ymax);
 	}
 	
 	static class Rectangle {
@@ -114,9 +114,9 @@ public class detect_result {
 	 * @param scale
 	 * @return
 	 */
-	static int qnt_f32_to_affine(float f32, int zp, float scale) {
+	static byte qnt_f32_to_affine(float f32, int zp, float scale) {
 	  float  dst_val = (f32 / scale) + zp;
-	  int res = clip(dst_val, -128, 127);
+	  byte res = (byte)clip(dst_val, -128, 127);
 	  return res;
 	}
 	/**
@@ -126,7 +126,7 @@ public class detect_result {
 	 * @param scale
 	 * @return (float qnt - float zp) multiplied by scale
 	 */
-	static float deqnt_affine_to_f32(int qnt, int zp, float scale) { 
+	static float deqnt_affine_to_f32(byte qnt, int zp, float scale) { 
 		return ((float)qnt - (float)zp) * scale; 
 	}
 	
@@ -259,7 +259,7 @@ public class detect_result {
 		for (int a = 0; a < 3; a++) {
 			for (int i = 0; i < grid_h; i++) {
 				for (int j = 0; j < grid_w; j++) {
-					int box_confidence = input[(PROP_BOX_SIZE * a + 4) * grid_len + i * grid_w + j];
+					byte box_confidence = input[(PROP_BOX_SIZE * a + 4) * grid_len + i * grid_w + j];
 					if (box_confidence >= thres_i8) {
 						int     offset = (PROP_BOX_SIZE * a) * grid_len + i * grid_w + j;
 						//int8_t* in_ptr = input + offset;
@@ -280,11 +280,11 @@ public class detect_result {
 						box_y -= (box_h / 2.0);
 
 						//int maxClassProbs = in_ptr[5 * grid_len];
-						int maxClassProbs = input[offset + (5 * grid_len)];
+						byte maxClassProbs = input[offset + (5 * grid_len)];
 						int    maxClassId    = 0;
 						for (int k = 1; k < OBJ_CLASS_NUM; k++) {
 							//int prob = in_ptr[(5 + k) * grid_len];
-							int prob = input[offset+((5 + k) * grid_len)];
+							byte prob = input[offset+((5 + k) * grid_len)];
 							System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
 								System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);

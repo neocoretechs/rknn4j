@@ -297,7 +297,7 @@ public class Model {
 		System.out.println("Total category labels="+labels.length);
 		if(wantFloat) {
 			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
-					widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
+					widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 					scale_w, scale_h, drg, labels);
 		} else {
 			ArrayList<Float> scales = new ArrayList<Float>();
@@ -308,7 +308,7 @@ public class Model {
 				scales.add(outputAttr.getScale());
 			}
 			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
-				widthHeightChannel[1], widthHeightChannel[0], (float)detect_result.BOX_THRESH, (float)detect_result.NMS_THRESH, 
+				widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 				scale_w, scale_h, zps, scales, drg, labels);
 		}
 		System.out.println("Detected Result Group:"+drg);

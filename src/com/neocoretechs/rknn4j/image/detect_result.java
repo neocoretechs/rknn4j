@@ -15,13 +15,15 @@ import java.util.Arrays;
  *
  */
 public class detect_result {
+	private static boolean DEBUG = true;
+	private static boolean DEBUG_VERBOSE = false;
 	String name;
 	float probability;
 	Rectangle box; //upper left x and y, width, height
 	
 	public static final int OBJ_CLASS_NUM  =   80;
-	public static final double NMS_THRESH   =     0.45;
-	public static final double BOX_THRESH   =     0.25;
+	public static final float NMS_THRESH   = 0.45f;
+	public static final float BOX_THRESH   = 0.10f;//   0.25f;
 	public static final int PROP_BOX_SIZE   = (5+OBJ_CLASS_NUM);
 	
 	// anchors for YOLOV5
@@ -44,13 +46,37 @@ public class detect_result {
 		int xmax;
 		int ymax;
 	}
-	
+	/**
+	 * IoU - intersection over union calculation for Non-Maximal Suppression.
+	 * For area of intersecting part, 
+	 * x_distance for intersecting rectangle = min(xmax0, xmax1) – max(xmin0, xmin1) 
+	 * y_distance for 1st rectangle = min(ymax0, ymax1) – max(ymin0, ymin1)
+	 * If the x_distance or y_distance is negative, then the two rectangles do not intersect.
+	 * In that case, overlapping area is 0.<p/>
+	 * Length of intersecting part i.e start from max(xmin0, xmin1) of x-coordinate and end at min(xmax0,xmax1) 
+	 * x-coordinate by subtracting start from end we get required lengths.<p/>
+	 * i = w * h = total area of intersecting rectangle;<p/>
+	 * Total Area = (Area of 1st rectangle + Area of 2nd rectangle) -  Area of Intersecting part.<p/>
+	 * We lock total area of intersection to >=0 by taking max of (0, 1 + length). We then compute area of both rectangles, 
+	 * by:<br/>u = width0+1 * height0+1 + width1+1 * height1+1 - i <p/>
+	 * We then return 0 if the Total Area calc u is <= 0, otherwise, return ratio of area of intersection over total area i/u.
+	 * intersection of areas over union of areas. Remove boxes with IoU over threshold.
+	 * @param xmin0
+	 * @param ymin0
+	 * @param xmax0
+	 * @param ymax0
+	 * @param xmin1
+	 * @param ymin1
+	 * @param xmax1
+	 * @param ymax1
+	 * @return
+	 */
 	static float CalculateOverlap(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
-		double w = Math.max(0.f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1) + 1.0);
-		double h = Math.max(0.f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1) + 1.0);
-		double i = w * h;
-		double u = (xmax0 - xmin0 + 1.0) * (ymax0 - ymin0 + 1.0) + (xmax1 - xmin1 + 1.0) * (ymax1 - ymin1 + 1.0) - i;
-		return (float) (u <= 0.f ? 0.f : (i / u));
+		float w = Math.max(0.0f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1) + 1.0f);
+		float h = Math.max(0.0f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1) + 1.0f);
+		float i = w * h; // total area of intersection rectangle
+		float u = (xmax0 - xmin0 + 1.0f) * (ymax0 - ymin0 + 1.0f) + (xmax1 - xmin1 + 1.0f) * (ymax1 - ymin1 + 1.0f) - i;
+		return (u <= 0.f ? 0.f : (i / u));
 	}
 	/**
 	 * Perform NMS (Non-Maximal Suppression) to eliminate overlapping bounding boxes
@@ -60,23 +86,23 @@ public class detect_result {
 	 * @param order
 	 * @param filterId
 	 * @param threshold
-	 * @return
 	 */
-	static int nms(int validCount, float[] outputLocations, int[] classIds, int[] order, int filterId, float threshold) {
+	static void nms(int validCount, float[] outputLocations, int[] classIds, int[] order, int filterId, float threshold) {
 		for (int i = 0; i < validCount; i++) {
-			if (order[i] == -1 || classIds[i] != filterId) {
+			int n = order[i];
+			if (n == -1 || classIds[i] != filterId) {
 				continue;
 			}
-			int n = order[i];
+			float xmin0 = outputLocations[n * 4 + 0];
+			float ymin0 = outputLocations[n * 4 + 1];
+			float xmax0 = outputLocations[n * 4 + 0] + outputLocations[n * 4 + 2];
+			float ymax0 = outputLocations[n * 4 + 1] + outputLocations[n * 4 + 3];
+
 			for (int j = i + 1; j < validCount; j++) {
 				int m = order[j];
-				if (m == -1 || classIds[i] != filterId) {
+				if (m == -1) {
 					continue;
 				}
-				float xmin0 = outputLocations[n * 4 + 0];
-				float ymin0 = outputLocations[n * 4 + 1];
-				float xmax0 = outputLocations[n * 4 + 0] + outputLocations[n * 4 + 2];
-				float ymax0 = outputLocations[n * 4 + 1] + outputLocations[n * 4 + 3];
 
 				float xmin1 = outputLocations[m * 4 + 0];
 				float ymin1 = outputLocations[m * 4 + 1];
@@ -90,7 +116,6 @@ public class detect_result {
 				}
 			}
 		}
-		return 0;
 	}
 	
 	static double sigmoid(float x) { return 1.0 / (1.0 + Math.exp(-x)); }
@@ -165,6 +190,7 @@ public class detect_result {
 		return Float.intBitsToFloat( buffer[n] ^ buffer[n+1]<<8 ^ buffer[n+2]<<16 ^ buffer[n+3]<<24 );
 	}
 	/**
+	 * FLOAT <p/>
 	 * Perform post processing on one of the output layers which was generated in want_float floating point format vs INT8
 	 * @param input Input byte buffer from NPU run
 	 * @param anchor float array of anchor boxes
@@ -176,7 +202,7 @@ public class detect_result {
 	 * @param boxes float collection of boxes populated by method
 	 * @param objProbs float collection of object probabilities populated by method
 	 * @param classId int collection of class Id indexes populated by method
-	 * @param threshold Non Maximal Suppression threshold constant to pass to unsigmoid function to determine confidence in box overlap
+	 * @param threshold Box threshold constant to pass to unsigmoid function to determine confidence in box overlap
 	 * @return Count of instances where max probability exceeded NMS threshold
 	 */
 	public static int process(byte[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
@@ -234,6 +260,7 @@ public class detect_result {
 		return validCount;
 	}
 	/**
+	 * INT8 AFFINE <p/>
 	 * Perform post processing on one of the output layers which was generated in INT8 default AFFINE format
 	 * @param input Input byte buffer from NPU run
 	 * @param anchor float array of anchor boxes
@@ -242,10 +269,10 @@ public class detect_result {
 	 * @param height height from model
 	 * @param width width from model
 	 * @param stride stride from model
-	 * @param boxes float collection of boxes populated by method
+	 * @param boxes float collection of boxes populated by method x,y,width,height
 	 * @param objProbs float collection of object probabilities populated by method
 	 * @param classId int collection of class Id indexes populated by method
-	 * @param threshold Non Maximal Suppression threshold constant to pass to unsigmoid function to determine confidence in box overlap
+	 * @param threshold Box threshold constant to pass to unsigmoid function to determine confidence in box overlap
 	 * @param zp Affine conversion factor compressing float to INT8 Zero Point offset for quantization
 	 * @param scale Used to map input range to output range for quantization of float to INT8
 	 * @return Count of instances where max probability exceeded NMS threshold
@@ -271,28 +298,33 @@ public class detect_result {
 						float   box_y  = (float) (sigmoid(extractFloat(input, offset+grid_len, zp, scale)) * 2.0 - 0.5);
 						float   box_w  = (float) (sigmoid(extractFloat(input, offset + (2 * grid_len), zp, scale)) * 2.0);
 						float   box_h  = (float) (sigmoid(extractFloat(input, offset + (3 * grid_len), zp, scale)) * 2.0);
-
+						if(DEBUG )
+							System.out.printf("Extracted raw coords %f %f %f %f%n", box_x,box_y,box_w,box_h);
 						box_x          = (box_x + j) * (float)stride;
 						box_y          = (box_y + i) * (float)stride;
 						box_w          = box_w * box_w * (float)anchor[a * 2];
 						box_h          = box_h * box_h * (float)anchor[a * 2 + 1];
 						box_x -= (box_w / 2.0);
 						box_y -= (box_h / 2.0);
-
+						if(DEBUG )
+							System.out.printf("Processed raw coords %f %f %f %f%n", box_x,box_y,box_w,box_h);
 						//int maxClassProbs = in_ptr[5 * grid_len];
 						byte maxClassProbs = input[offset + (5 * grid_len)];
 						int    maxClassId    = 0;
 						for (int k = 1; k < OBJ_CLASS_NUM; k++) {
 							//int prob = in_ptr[(5 + k) * grid_len];
 							byte prob = input[offset+((5 + k) * grid_len)];
-							System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
+							if(DEBUG_VERBOSE )
+								System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
-								System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
+								if(DEBUG)
+									System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 								maxClassId    = k;
 								maxClassProbs = prob;
 							}
 						}
-						System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8+" box_conf="+box_confidence+" maxClassId="+maxClassId);
+						if(DEBUG_VERBOSE)
+							System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres_i8+" box_conf="+box_confidence+" maxClassId="+maxClassId);
 						if (maxClassProbs > thres_i8){
 							float fProb = (float)(sigmoid(deqnt_affine_to_f32(maxClassProbs, zp, scale)));
 							float boxConf = (float)(sigmoid(deqnt_affine_to_f32(box_confidence, zp, scale)));
@@ -323,7 +355,7 @@ public class detect_result {
 	 * @param objProbsArray
 	 * @param labels
 	 * @param group
-	 * @param nms_threshold
+	 * @param nms_threshold Intersection over Union threshold for overlapping rectangular detection area non-maximal suppression
 	 * @param validCount
 	 * @param model_in_w
 	 * @param model_in_h
@@ -337,14 +369,16 @@ public class detect_result {
 		//Arrays.stream(classIdArray).boxed().sorted().forEach(e->classSet.add(e));
 		int[] classSet = Arrays.copyOf(classIdArray, classIdArray.length);
 		Arrays.sort(classSet);
-		System.out.println("Arrays loaded");
+		if(DEBUG_VERBOSE)
+			System.out.println("Arrays loaded");
 		for(Integer c: classSet) {
-			System.out.println("NMS for "+c);
+			if(DEBUG_VERBOSE)
+				System.out.println("NMS for "+c);
 			nms(validCount, filterBoxesArray, classIdArray, indexArray, c, nms_threshold);
 		}
-		System.out.println("Maximal suppression done indexArray:"+Arrays.toString(indexArray));
-		System.out.println("Maximal suppression done classIdArray:"+Arrays.toString(classIdArray));
-		System.out.println("Maximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		System.out.println("NonMaximal suppression done indexArray:"+Arrays.toString(indexArray));
+		System.out.println("NonMaximal suppression done classIdArray:"+Arrays.toString(classIdArray));
+		System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
 	
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
@@ -354,14 +388,16 @@ public class detect_result {
 				continue;
 			}
 			int n = indexArray[i];
-			System.out.println("IndexArray "+i+" n="+n);
+			if(DEBUG)
+				System.out.println("IndexArray "+i+" n="+n);
 			float x1       = filterBoxesArray[n * 4 + 0];
 			float y1       = filterBoxesArray[n * 4 + 1];
 			float x2       = x1 + filterBoxesArray[n * 4 + 2];
 			float y2       = y1 + filterBoxesArray[n * 4 + 3];
 			int   id       = classIdArray[n];
 			float obj_conf = objProbsArray[i];
-			System.out.println("x1="+x1+" y1="+y1+" x2="+x2+" y2="+y2+" id="+id+" obj_conf="+obj_conf);
+			if(DEBUG)
+				System.out.println("x1="+x1+" y1="+y1+" x2="+x2+" y2="+y2+" id="+id+" obj_conf="+obj_conf);
 			detect_result dr = new detect_result();
 			dr.box.xmin   = (int)(clamp(x1, 0, model_in_w) / scale_w);
 			dr.box.ymin    = (int)(clamp(y1, 0, model_in_h) / scale_h);
@@ -370,8 +406,9 @@ public class detect_result {
 			dr.probability       = obj_conf;
 			dr.name		  = labels[id];
 			groupArray.add(dr);
-
-		System.out.printf("result %2d: (%4d, %4d, %4d, %4d), %s %s\n", i, dr.box.xmin,dr.box.ymin,dr.box.xmax,dr.box.ymax,dr.probability,dr.name);
+			
+			if(DEBUG)
+				System.out.printf("result %2d: (%4d, %4d, %4d, %4d), %s %s\n", i, dr.box.xmin,dr.box.ymin,dr.box.xmax,dr.box.ymax,dr.probability,dr.name);
 
 		}
 		//group.id
@@ -384,6 +421,7 @@ public class detect_result {
 		return groupArray.size();
 	}
 	/**
+	 * INT8 AFFINE<p/>
 	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if int8 output.
 	 * @param input0 Layer 0 output from NPU
@@ -442,7 +480,8 @@ public class detect_result {
                    classId2, conf_threshold, qnt_zps.get(2), qnt_scales.get(2));
 
 		int validCount = validCount0 + validCount1 + validCount2;
-		System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
+		if(DEBUG)
+			System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
 		// no object detected
 		if (validCount <= 0) {
 			return 0;
@@ -463,19 +502,21 @@ public class detect_result {
 		for(int j = 0; j < objProbs2.size(); j++) {
 			objProbsArray[i++] = objProbs2.get(j).floatValue();
 		}
-		
-		System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
-		System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
-
-		System.out.println("Quicksort..");
+		if(DEBUG) {
+			System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
+			System.out.println("Quicksort..");
+		}
 		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
-		System.out.println("Quicksort done");
-		
-		System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
-		System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		if(DEBUG) {
+			System.out.println("Quicksort done");	
+			System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		}
 		
 		float[] filterBoxesArray = new float[validCount*4];
-		System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
+		if(DEBUG)
+			System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
 		i = 0;
 		for(int j = 0; j < filterBoxes0.size(); j++) {
 			filterBoxesArray[i++] = filterBoxes0.get(j);
@@ -488,7 +529,8 @@ public class detect_result {
 		}
 		
 		int[] classIdArray = new int[validCount];
-		System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
+		if(DEBUG)
+			System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
 		i = 0;
 		for(int j = 0; j < classId0.size(); j++) {
 			classIdArray[i++] = classId0.get(j);
@@ -499,8 +541,10 @@ public class detect_result {
 		for(int j = 0; j < classId2.size(); j++) {
 			classIdArray[i++] = classId2.get(j);
 		}
-		System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
-		System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		if(DEBUG) {
+			System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
+			System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		}
 		
 		return process_arrays(classIdArray, indexArray, filterBoxesArray, objProbsArray, labels, 
 				group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
@@ -508,6 +552,7 @@ public class detect_result {
 	}
 	
 	/**
+	 * FLOAT<p/>
 	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if FLOAT output.<p/>
 	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
@@ -564,7 +609,8 @@ public class detect_result {
                    classId2, conf_threshold);
 
 		int validCount = validCount0 + validCount1 + validCount2;
-		System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
+		if(DEBUG)
+			System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
 		// no object detected
 		if (validCount <= 0) {
 			return 0;
@@ -585,19 +631,21 @@ public class detect_result {
 		for(int j = 0; j < objProbs2.size(); j++) {
 			objProbsArray[i++] = objProbs2.get(j).floatValue();
 		}
-		
-		System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
-		System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
-
-		System.out.println("Quicksort..");
+		if(DEBUG) {
+			System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
+			System.out.println("Quicksort..");
+		}
 		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
-		System.out.println("Quicksort done");
-		
-		System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
-		System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		if(DEBUG) {
+			System.out.println("Quicksort done");
+			System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		}
 		
 		float[] filterBoxesArray = new float[validCount*4];
-		System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
+		if(DEBUG)
+			System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
 		i = 0;
 		for(int j = 0; j < filterBoxes0.size(); j++) {
 			filterBoxesArray[i++] = filterBoxes0.get(j);
@@ -610,7 +658,8 @@ public class detect_result {
 		}
 		
 		int[] classIdArray = new int[validCount];
-		System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
+		if(DEBUG)
+			System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
 		i = 0;
 		for(int j = 0; j < classId0.size(); j++) {
 			classIdArray[i++] = classId0.get(j);
@@ -621,8 +670,10 @@ public class detect_result {
 		for(int j = 0; j < classId2.size(); j++) {
 			classIdArray[i++] = classId2.get(j);
 		}
-		System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
-		System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		if(DEBUG) {
+			System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
+			System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		}
 		
 		return process_arrays(classIdArray, indexArray, filterBoxesArray, objProbsArray, labels, 
 				group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);

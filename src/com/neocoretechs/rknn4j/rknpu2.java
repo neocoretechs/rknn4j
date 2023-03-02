@@ -73,7 +73,7 @@ public class rknpu2 {
      * @param flag extend flag, see the define of RKNN_FLAG_XXX_XXX.
      * @return int error code.
 	 */
-	public native int rknn_init(byte[] model, int size, int flag);
+	public native long rknn_init(byte[] model, int size, int flag);
 
 	/**
 	* rknn_init2
@@ -84,14 +84,14 @@ public class rknpu2 {
     * @param rknn_init_extend extend the extend information of init.
     * @return int error code.
 	 */
-	public native int rknn_init2(byte[] model, int size, int flag, rknn_init_extend extend);
+	public native long rknn_init2(byte[] model, int size, int flag, rknn_init_extend extend);
 
 	/**
 	 * rknn_destroy
      * unload the rknn model and destroy the context.
      * @return int error code.
 	 */
-	public native int rknn_destroy();
+	public native int rknn_destroy(long ctx);
 
 	/**  
 	* rknn_query sdk version
@@ -99,7 +99,7 @@ public class rknpu2 {
     * @param sdk version buffer instance to set
     * @return int error code.
 	*/
-	public native int rknn_query_sdk(rknn_sdk_version info);
+	public native int rknn_query_sdk(long ctx, rknn_sdk_version info);
 	
 	/**  
 	* rknn_query input and output nodes.
@@ -109,7 +109,7 @@ public class rknpu2 {
     * @param the input_output_num instance to set
     * @return int error code.
 	*/
-	public native int rknn_query_IO_num(rknn_input_output_num info);
+	public native int rknn_query_IO_num(long ctx, rknn_input_output_num info);
 	
 	/**  
 	* rknn_query input layer.
@@ -126,7 +126,7 @@ public class rknpu2 {
     * @param the input_output_num instance to set
     * @return int error code.
 	*/
-	public native int rknn_query_input_attr(rknn_tensor_attr info);
+	public native int rknn_query_input_attr(long ctx, rknn_tensor_attr info);
 	
 	/**  
 	* rknn_query output layer.
@@ -143,7 +143,7 @@ public class rknpu2 {
     * @param the output_output_num instance to set
     * @return int error code.
 	*/
-	public native int rknn_query_output_attr(rknn_tensor_attr info);
+	public native int rknn_query_output_attr(long ctx, rknn_tensor_attr info);
 	
 	/**
 	* rknn_inputs_set
@@ -153,7 +153,7 @@ public class rknpu2 {
     * @param rknn_input inputs[]         the arrays of inputs information, see rknn_input.
     * @return int error code
 	 */
-	public native int rknn_inputs_set(int n_inputs, rknn_input inputs[]);
+	public native int rknn_inputs_set(long ctx, int n_inputs, rknn_input inputs[]);
 
 	/**
 	*   rknn_run
@@ -163,7 +163,7 @@ public class rknpu2 {
     * @param rknn_run_extend extend     the extend information of run.
     * @return int                         error code.
 	*/
-	public native int rknn_run(rknn_run_extend extend);
+	public native int rknn_run(long ctx, rknn_run_extend extend);
 
 	/**
 	* rknn_outputs_get
@@ -175,7 +175,7 @@ public class rknpu2 {
     * @param rknn_output_extend the extend information of output.
     * @return int error code.
 	*/
-	public native int rknn_outputs_get(int n_outputs, rknn_output outputs[], rknn_output_extend extend);
+	public native int rknn_outputs_get(long ctx, int n_outputs, rknn_output outputs[], rknn_output_extend extend);
 
 	/** 
 	* rknn_outputs_release
@@ -186,6 +186,6 @@ public class rknpu2 {
     * @param rknn_output outputs[] the arrays of output.
     * @return: int error code
 	 */
-	public native int rknn_outputs_release(int n_ouputs, rknn_output outputs[]);
+	public native int rknn_outputs_release(long ctx, int n_ouputs, rknn_output outputs[]);
 
 }

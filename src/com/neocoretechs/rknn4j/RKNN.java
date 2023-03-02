@@ -61,7 +61,6 @@ public class RKNN {
 	public static final int RKNN_MAX_DEVS         =                  256;     /* maximum number of device. */
 	public static final int RKNN_MAX_DEV_LEN      =                  64;      /* maximum id/type lenth of device. */
 
-	long rknn_context;
 
 	/*
 	    The query command for rknn_query

@@ -38,6 +38,7 @@ import com.neocoretechs.rknn4j.image.detect_result_group;
  */
 public class Model {
 	private rknpu2 npu = new rknpu2();
+
 	/**
 	 * Load a file and return byte array, presumably to load model from storage.
 	 * @param file
@@ -61,10 +62,12 @@ public class Model {
 	 * @param model The model loaded from desired source in rknn format.
 	 * @throws RuntimeException if query fails
 	 */
-	public void init(byte[] model) {
-		int res = npu.rknn_init(model, model.length, RKNN.RKNN_FLAG_PRIOR_HIGH);
-		if(res != RKNN.RKNN_SUCC)
-			throw new RuntimeException(RKNN.get_error_string(res));
+	public long init(byte[] model) {
+		long res = npu.rknn_init(model, model.length, RKNN.RKNN_FLAG_PRIOR_HIGH);
+		//if(res != RKNN.RKNN_SUCC)
+		if(res >= -11 && res <=0) // return codes that are not valid context
+			throw new RuntimeException(RKNN.get_error_string((int) res));
+		return res;
 	}
 	
 	/**
@@ -73,9 +76,9 @@ public class Model {
 	 * @return rknn_sdk_version from query
 	 * @throws RuntimeException if query fails.
 	 */
-	public rknn_sdk_version querySDK() {
+	public rknn_sdk_version querySDK(long ctx) {
 		rknn_sdk_version sdk = new rknn_sdk_version();
-		int res = npu.rknn_query_sdk(sdk);
+		int res = npu.rknn_query_sdk(ctx, sdk);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return sdk;
@@ -87,18 +90,18 @@ public class Model {
 	 * @return The queried rknn_input_output_num
 	 * @throws RuntimeException if query fails.
 	 */
-	public rknn_input_output_num queryIONumber() {
+	public rknn_input_output_num queryIONumber(long ctx) {
 		rknn_input_output_num ioNum = new rknn_input_output_num();
-		int res = npu.rknn_query_IO_num(ioNum);
+		int res = npu.rknn_query_IO_num(ctx, ioNum);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return ioNum;
 	}
 	
-	public rknn_tensor_attr queryOutputAttrs(int index) {
+	public rknn_tensor_attr queryOutputAttrs(long ctx, int index) {
 		rknn_tensor_attr outputAttrs = new rknn_tensor_attr();
 		outputAttrs.setIndex(index);
-		int res = npu.rknn_query_output_attr(outputAttrs);
+		int res = npu.rknn_query_output_attr(ctx, outputAttrs);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return outputAttrs;
@@ -109,10 +112,10 @@ public class Model {
 	 * @return the queried rknn_tensor_attr instance from NPU from the model index
 	 * @throws RuntimeException if query fails
 	 */
-	public rknn_tensor_attr queryInputAttrs(int index) {
+	public rknn_tensor_attr queryInputAttrs(long ctx, int index) {
 		rknn_tensor_attr inputAttrs = new rknn_tensor_attr();
 		inputAttrs.setIndex(index);
-		int res = npu.rknn_query_input_attr(inputAttrs);
+		int res = npu.rknn_query_input_attr(ctx, inputAttrs);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 		return inputAttrs;
@@ -131,7 +134,7 @@ public class Model {
 	 * @param buf image bytes in format to match model
 	 * @throws RuntimeException i input call fails.
 	 */
-	public void setInputs(int width, int height, int channels, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
+	public void setInputs(long ctx, int width, int height, int channels, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
 		rknn_input[] inputs = new rknn_input[1];
 		inputs[0] = new rknn_input();
 		inputs[0].setIndex(0);
@@ -140,7 +143,7 @@ public class Model {
 		inputs[0].setFmt(fmt);
 		inputs[0].setBuf(buf);
 		inputs[0].setPass_through(false);
-		int res = npu.rknn_inputs_set(1,inputs);
+		int res = npu.rknn_inputs_set(ctx, 1, inputs);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
@@ -180,8 +183,8 @@ public class Model {
 	 * @param outputs array of outputs with index fields instantiated from setOutputs
 	 * @throws RuntimeExcpetion if get fails
 	 */
-	public void getOutputs(int nOutputs, rknn_output[] outputs) {
-		int res = npu.rknn_outputs_get(nOutputs, outputs, null);
+	public void getOutputs(long ctx, int nOutputs, rknn_output[] outputs) {
+		int res = npu.rknn_outputs_get(ctx, nOutputs, outputs, null);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
@@ -190,8 +193,8 @@ public class Model {
 	 * Perform actual inference using initialized model, data, and parameters
 	 * @throws RuntimeException if run fails
 	 */
-	public void run() {
-		int res = npu.rknn_run(null);
+	public void run(long ctx) {
+		int res = npu.rknn_run(ctx, null);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
@@ -223,9 +226,13 @@ public class Model {
 		}
 		throw new RuntimeException("Unsupported model format");
 	}
-
-	public void destroy() {
-		int res = npu.rknn_destroy();
+	
+	/**
+	 * Destroy context, pased context no longer valid. User must enforce.
+	 * @param ctx
+	 */
+	public void destroy(long ctx) {
+		int res = npu.rknn_destroy(ctx);
 		if(res != RKNN.RKNN_SUCC)
 			throw new RuntimeException(RKNN.get_error_string(res));
 	}
@@ -240,16 +247,16 @@ public class Model {
 		boolean wantFloat = false;
 		byte[] model = m.load(args[0]);
 		long tim = System.currentTimeMillis();
-		m.init(model);
+		long ctx = m.init(model);
 		System.out.println("Init time:"+(System.currentTimeMillis()-tim)+" ms.");
-		rknn_sdk_version sdk = m.querySDK();
-		rknn_input_output_num ioNum = m.queryIONumber();
+		rknn_sdk_version sdk = m.querySDK(ctx);
+		rknn_input_output_num ioNum = m.queryIONumber(ctx);
 		System.out.printf("%s %s%n", sdk, ioNum);
 		BufferedImage bimage = Instance.readBufferedImage(args[1]);
 		Instance image = null;
 		rknn_tensor_attr[] inputAttrs = new rknn_tensor_attr[ioNum.getN_input()];
 		for(int i = 0; i < ioNum.getN_input(); i++) {
-			inputAttrs[i] = m.queryInputAttrs(i);
+			inputAttrs[i] = m.queryInputAttrs(ctx, i);
 			System.out.println("Tensor input layer "+i+" attributes:");
 			System.out.println(RKNN.dump_tensor_attr(inputAttrs[i]));
 		}
@@ -269,14 +276,14 @@ public class Model {
 		//}
 		ArrayList<rknn_tensor_attr> tensorAttrs = new ArrayList<rknn_tensor_attr>();
 		for(int i = 0; i < ioNum.getN_output(); i++) {
-			rknn_tensor_attr outputAttr = m.queryOutputAttrs(i);
+			rknn_tensor_attr outputAttr = m.queryOutputAttrs(ctx, i);
 			System.out.println("Tensor output layer "+i+" attributes:");
 			System.out.println(RKNN.dump_tensor_attr(outputAttr));
 			tensorAttrs.add(outputAttr);
 		}
 		System.out.println("Setting inputs...");
 		tim = System.currentTimeMillis();
-		m.setInputs(widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
 		System.out.println("Set inputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Setting up outputs..");
 		// no preallocation of output image buffers, no force floating output
@@ -285,11 +292,11 @@ public class Model {
 		System.out.println("Set outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
 		tim = System.currentTimeMillis();
-		m.run();
+		m.run(ctx);
 		System.out.println("Run time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Getting outputs...");
 		tim = System.currentTimeMillis();
-		m.getOutputs(ioNum.getN_output(), outputs);
+		m.getOutputs(ctx, ioNum.getN_output(), outputs);
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		detect_result_group drg = new detect_result_group();
@@ -313,6 +320,6 @@ public class Model {
 		}
 		System.out.println("Detected Result Group:"+drg);
 		image.drawDetections(drg);
-		m.destroy();
+		m.destroy(ctx);
 	}
 }

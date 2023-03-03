@@ -351,8 +351,12 @@ public class detect_result {
 		for(int i = 0; i < input1.length; i+=4) {
 			outputClasses.add(extractFloat(input1, i));
 		}
-		if(DEBUG)
+		if(DEBUG) {
 			System.out.println("SSD process predictions="+predictions.size()+" output classes="+outputClasses.size());
+			System.out.println(Arrays.toString(predictions.toArray()));
+			System.out.println("------------------");
+			System.out.println(Arrays.toString(outputClasses.toArray()));
+		}
 	}
 	/**
 	 * Process the InceptSSD arrays assembled from post processing output layers after extracting buffer data and
@@ -732,13 +736,6 @@ public class detect_result {
 		int validCount = 0;
 		// convert input0 to 'predictions', convert input1 to 'output_classes'
 		process(input0, input1, model_in_h, model_in_w, predictions, outputClasses);
-	
-		if(DEBUG)
-			System.out.printf("Valid count total =%d", validCount);
-		// no object detected
-		if (validCount <= 0) {
-			return 0;
-		}
 
 		float[] predictionsArray =  new float[predictions.size()];
 		int i = 0;
@@ -758,7 +755,12 @@ public class detect_result {
 		decodeCenterSizeBoxes(predictionsArray, box_priors);
 
 		validCount = filterValidResult(outputClassesArray, output, NUM_CLASS, props);
-
+		if(DEBUG)
+			System.out.printf("Valid count total =%d", validCount);
+		// no object detected
+		if (validCount <= 0) {
+			return 0;
+		}
 		if(DEBUG) {
 			System.out.println("UnSorted output:"+Arrays.toString(output));
 			System.out.println("UnSorted props:"+Arrays.toString(props));

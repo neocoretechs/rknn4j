@@ -95,7 +95,7 @@ public class detect_result {
 	 * @param boxPriors Populated array which will be read-only
 	 */
 	static void decodeCenterSizeBoxes(float[] predictions, float[][] boxPriors) {
-	  for (int i = 0; i < NUM_RESULTS; ++i) {
+	  for (int i = 0; i < NUM_RESULTS; i++) {
 	    float ycenter = predictions[i * 4 + 0] / Y_SCALE * boxPriors[2][i] + boxPriors[0][i];
 	    float xcenter = predictions[i * 4 + 1] / X_SCALE * boxPriors[3][i] + boxPriors[1][i];
 	    float h       = (float)Math.exp(predictions[i * 4 + 2] / H_SCALE) * boxPriors[2][i];
@@ -124,11 +124,11 @@ public class detect_result {
 	  int   validCount = 0;
 	  float min_score  = (float) unsigmoid(MIN_SCORE);
 	  // Scale them back to the input size.
-	  for (int i = 0; i < NUM_RESULTS; ++i) {
+	  for (int i = 0; i < NUM_RESULTS; i++) {
 	    float topClassScore      = -1000.0f;
 	    int   topClassScoreIndex = -1;
 	    // Skip the first catch-all class.
-	    for (int j = 1; j < numClasses; ++j) {
+	    for (int j = 1; j < numClasses; j++) {
 	      // x and sigmoid(x) has same monotonicity
 	      // so compare x and compare sigmoid(x) is same
 	      // float score = sigmoid(outputClasses[i*numClasses+j]);
@@ -142,6 +142,9 @@ public class detect_result {
 	      output[0][validCount] = i;
 	      output[1][validCount] = topClassScoreIndex;
 	      props[validCount]     = (float) sigmoid(outputClasses[i * numClasses + topClassScoreIndex]);
+	      if(DEBUG) {
+	    	  System.out.println("filterValidResult validCount="+validCount+" output[0]="+i+" output[1]="+topClassScoreIndex+" props[validCount]="+props[validCount]+" topClassSCore="+topClassScore+" min_score="+min_score);
+	      }
 	      ++validCount;
 	    }
 	  }
@@ -351,7 +354,7 @@ public class detect_result {
 		for(int i = 0; i < input1.length; i+=4) {
 			outputClasses.add(extractFloat(input1, i));
 		}
-		if(DEBUG) {
+		if(DEBUG_VERBOSE) {
 			System.out.println("SSD process predictions="+predictions.size()+" output classes="+outputClasses.size());
 			System.out.println(Arrays.toString(predictions.toArray()));
 			System.out.println("------------------");
@@ -378,7 +381,8 @@ public class detect_result {
 			detect_result_group group, float nms_threshold, int validCount, int model_in_w, int model_in_h, float scale_w, float scale_h) {
 		//
 		nmsSSD(validCount, filterBoxesArray, output, nms_threshold);
-		System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		if(DEBUG)
+			System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
 	
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
@@ -746,7 +750,7 @@ public class detect_result {
 		float[] outputClassesArray =  new float[outputClasses.size()];
 		i = 0;
 		for(int j = 0; j < outputClasses.size(); j++) {
-			outputClassesArray[i++] = outputClasses.get(j).intValue();
+			outputClassesArray[i++] = outputClasses.get(j).floatValue();
 		}
 		
 		int[][] output = new int[2][NUM_RESULTS];
@@ -766,7 +770,7 @@ public class detect_result {
 			System.out.println("UnSorted props:"+Arrays.toString(props));
 			System.out.println("sort..");
 		}
-		sort(output, props, output.length);
+		sort(output, props, validCount);
 		if(DEBUG) {
 			System.out.println("sort done");
 			System.out.println("Sorted output:"+Arrays.toString(output));

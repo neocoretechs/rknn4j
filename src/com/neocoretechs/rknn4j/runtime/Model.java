@@ -57,6 +57,29 @@ public class Model {
 		return slines;
 	}
 	/**
+	 * Load the detection box anchors for InceptionSSD model from designated file
+	 * @param file                                                                                                                                                                                                                                                                                                                                                                                                                                               
+	 * @param num total number of elements to expect (1917)
+	 * @return The parsed float array from file with [4][num] elements
+	 * @throws IOException
+	 */
+	public static float[][] loadBoxPriors(String file, int num) throws IOException {
+		float[][] ret = new float[4][num];
+		String[] lines = loadLines(file);
+		for (int i = 0; i < 4; i++) {
+			int cnt = 0;
+			String[] sfloat = lines[i].split("\\s");
+			for(String s: sfloat) {
+				if(s == null || s.length() == 0) 
+					continue;
+				System.out.println("i="+i+" cnt="+cnt+" "+s);
+				ret[i][cnt++] = Float.parseFloat(s);
+			}
+		}
+		return ret;
+	}
+
+	/**
 	 * Initialize the given model. this is always step 1.
 	 * Performs rknn_init
 	 * @param model The model loaded from desired source in rknn format.
@@ -286,8 +309,17 @@ public class Model {
 		m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
 		System.out.println("Set inputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Setting up outputs..");
-		// no preallocation of output image buffers, no force floating output
+		// no preallocation of output image buffers for YOLO, no force floating output
+		// InceptionSSD required want_float = true, it has 2 layers of output vs 3 for YOLO
 		tim = System.currentTimeMillis();
+		String[] labels = null;
+		if(ioNum.getN_output() == 2) { // InceptionSSD
+			wantFloat = true;
+			labels = loadLines("model/coco_labels_list.txt");
+		} else { //assume YOLOv5
+			labels = loadLines("model/coco_80_labels_list.txt");
+		}
+		System.out.println("Total category labels="+labels.length);
 		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
 		System.out.println("Set outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
@@ -300,11 +332,10 @@ public class Model {
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		detect_result_group drg = new detect_result_group();
-		String[] labels = loadLines("model/coco_80_labels_list.txt");
-		System.out.println("Total category labels="+labels.length);
 		if(wantFloat) {
-			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
-					widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
+			float[][] boxPriors = loadBoxPriors("model/box_priors.txt",detect_result.NUM_RESULTS);
+			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+					widthHeightChannel[1], widthHeightChannel[0], detect_result.NMS_THRESH, 
 					scale_w, scale_h, drg, labels);
 		} else {
 			ArrayList<Float> scales = new ArrayList<Float>();

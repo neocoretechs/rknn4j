@@ -349,6 +349,23 @@ public class Instance {
 		}
 	}
 	
+	public static void drawDetections(BufferedImage bimage, detect_result_group detections) {
+		if(detections == null || detections.results == null)
+			return;
+		Graphics graphics = bimage.getGraphics();
+		for(detect_result dr: detections.results) {
+			graphics.setColor(Color.CYAN);
+			graphics.drawRect(dr.box.xmin, dr.box.ymin, dr.box.xmax-dr.box.xmin, dr.box.ymax-dr.box.ymin);
+			graphics.setColor(Color.YELLOW);
+			graphics.setFont(new Font("Courier", Font.PLAIN, 10));
+			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
+		}
+		try {
+			ImageIO.write(bimage, "jpg", new File("detections.jpg"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	public String getName() {
 		return name;
 	}

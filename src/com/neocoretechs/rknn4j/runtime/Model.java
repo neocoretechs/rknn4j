@@ -336,6 +336,8 @@ public class Model {
 			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
 					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH, 
 					scale_w, scale_h, drg, labels);
+			System.out.println("Detected Result Group:"+drg);
+			Instance.drawDetections(bimage, drg);
 		} else {
 			ArrayList<Float> scales = new ArrayList<Float>();
 			ArrayList<Integer> zps = new ArrayList<Integer>();
@@ -347,9 +349,9 @@ public class Model {
 			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
 				widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 				scale_w, scale_h, zps, scales, drg, labels);
+			System.out.println("Detected Result Group:"+drg);
+			image.drawDetections(drg);
 		}
-		System.out.println("Detected Result Group:"+drg);
-		image.drawDetections(drg);
 		m.destroy(ctx);
 	}
 }

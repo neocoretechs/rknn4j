@@ -1,5 +1,8 @@
 package com.neocoretechs.rknn4j.image;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -16,7 +19,7 @@ import java.util.Arrays;
  */
 public class detect_result {
 	private static boolean DEBUG = true;
-	private static boolean DEBUG_VERBOSE = false;
+	private static boolean DEBUG_VERBOSE = true;
 	String name;
 	float probability;
 	Rectangle box; //upper left x and y, width, height
@@ -334,32 +337,23 @@ public class detect_result {
 	static float extractFloat(byte[] buffer, int ptr, int zp, float scale) {
 		return deqnt_affine_to_f32(buffer[ptr], zp, scale);
 	}
-	static float extractFloat(byte[] buffer, int n) {
-		return Float.intBitsToFloat( buffer[n] ^ buffer[n+1]<<8 ^ buffer[n+2]<<16 ^ buffer[n+3]<<24 );
-	}
+
 	/**
 	 * FLOAT <p/>
 	 * Perform post processing on the InceptionSSD output layers which was generated in want_float floating point format vs INT8
 	 * @param input0 Input byte buffer from NPU run convert to predictions
-	 * @param input1 Input from NPU convert to outputClasses
-	 * @param height height from model
-	 * @param width width from model
-	 * @param predictions float collection of boxes populated by method
-	 * @param objClasses float collection of object probabilities populated by method
 	 */
-	public static void process(byte[] input0, byte[] input1, int height, int width, ArrayList<Float> predictions, ArrayList<Float> outputClasses) {
-		for(int i = 0; i < input0.length; i+=4) {
-			predictions.add(extractFloat(input0, i));
-		}
-		for(int i = 0; i < input1.length; i+=4) {
-			outputClasses.add(extractFloat(input1, i));
-		}
+	public static float[] process(byte[] input0) {
+		ByteBuffer byteBuffer = ByteBuffer.wrap(input0);
+		byteBuffer.order(ByteOrder.nativeOrder());
+		byteBuffer.rewind();
+		float[] floatArray = new float[input0.length / 4];
+		byteBuffer.asFloatBuffer().get(floatArray);
 		if(DEBUG_VERBOSE) {
-			System.out.println("SSD process predictions="+predictions.size()+" output classes="+outputClasses.size());
-			System.out.println(Arrays.toString(predictions.toArray()));
-			System.out.println("------------------");
-			System.out.println(Arrays.toString(outputClasses.toArray()));
+			System.out.println("SSD process ="+floatArray.length);
+			System.out.println(Arrays.toString(floatArray));
 		}
+		return floatArray;
 	}
 	/**
 	 * Process the InceptSSD arrays assembled from post processing output layers after extracting buffer data and
@@ -733,25 +727,13 @@ public class detect_result {
 	 */
 	public static int post_process(byte[] input0, byte[] input1, float[][] box_priors, int model_in_h, int model_in_w,
             float nms_threshold, float scale_w, float scale_h, detect_result_group group, String[] labels) {
-
-		ArrayList<Float> predictions = new ArrayList<Float>();
-		ArrayList<Float> outputClasses = new ArrayList<Float>();
-		
+	
 		int validCount = 0;
 		// convert input0 to 'predictions', convert input1 to 'output_classes'
-		process(input0, input1, model_in_h, model_in_w, predictions, outputClasses);
 
-		float[] predictionsArray =  new float[predictions.size()];
-		int i = 0;
-		for(int j = 0; j < predictions.size(); j++) {
-			predictionsArray[i++] = predictions.get(j).floatValue();
-		}
+		float[] predictionsArray =  process(input0);
 
-		float[] outputClassesArray =  new float[outputClasses.size()];
-		i = 0;
-		for(int j = 0; j < outputClasses.size(); j++) {
-			outputClassesArray[i++] = outputClasses.get(j).floatValue();
-		}
+		float[] outputClassesArray =  process(input1);
 		
 		int[][] output = new int[2][NUM_RESULTS];
 		float[] props = new float[NUM_RESULTS];

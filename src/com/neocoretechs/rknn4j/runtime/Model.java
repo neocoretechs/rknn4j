@@ -310,29 +310,15 @@ public class Model {
 		// InceptionSSD required want_float = true, it has 2 layers of output vs 3 for YOLO
 		tim = System.currentTimeMillis();
 		String[] labels = null;
-		rknn_output[] outputs = null;
 		if(ioNum.getN_output() == 2) { // InceptionSSD
-			// Set Input Data, example of manual setup
-			rknn_input[] inputs = new rknn_input[1];
-			inputs[0] = new rknn_input();
-			inputs[0].setIndex(0);
-			inputs[0].setType(rknn_tensor_type.RKNN_TENSOR_UINT8);
-			inputs[0].setSize(widthHeightChannel[0] * widthHeightChannel[1] * widthHeightChannel[2]);
-			inputs[0].setFmt(rknn_tensor_format.RKNN_TENSOR_NHWC);
-			inputs[0].setBuf(image.getRGB888());
 			wantFloat = true;
 			labels = loadLines("model/coco_labels_list.txt");
-			outputs = new rknn_output[2];
-			outputs[0] = new rknn_output();
-			outputs[0].setWant_float(wantFloat);
-			outputs[1] = new rknn_output();
-			outputs[1].setWant_float(wantFloat);
 		} else { //assume YOLOv5
-			// Set input data, example of setInputs
-			m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
 			labels = loadLines("model/coco_80_labels_list.txt");
-			outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
 		}
+		// Set input data, example of setInputs
+		m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
 		System.out.println("Total category labels="+labels.length);
 		System.out.println("Setup time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");

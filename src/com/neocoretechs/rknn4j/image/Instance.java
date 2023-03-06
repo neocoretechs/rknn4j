@@ -24,6 +24,7 @@ import javax.imageio.ImageIO;
  * @author Jonathan Groff Copyright (C) NeoCoreTechs 2022
  */
 public class Instance {
+	private static boolean DEBUG = false;
 	// Store the bufferedImage.
 	private BufferedImage image;
 	private String label;
@@ -94,7 +95,8 @@ public class Instance {
 		Graphics2D g = this.image.createGraphics();
 		while(!g.drawImage(i, 0, 0, fixWidth, fixHeight, null)) {
 			try {
-				System.out.println("Wait for image...");
+				if(DEBUG)
+					System.out.println("Wait for image...");
 				Thread.sleep(1);
 			} catch (InterruptedException e) {}
 		}
@@ -131,7 +133,8 @@ public class Instance {
 		File fi = new File(fileName);
 		BufferedImage img = null;
 		try {
-			System.out.println("Reading "+fi.getName());
+			if(DEBUG)
+				System.out.println("Reading "+fi.getName());
 			img = ImageIO.read(fi);
 			String name = fi.getName();
 			// Resize the image if requested.
@@ -150,7 +153,8 @@ public class Instance {
 		File fi = new File(fileName);
 		BufferedImage img = null;
 		try {
-			System.out.println("Reading "+fi.getName());
+			if(DEBUG)
+				System.out.println("Reading "+fi.getName());
 			img = ImageIO.read(fi);
 			String name = fi.getName();
 			// Resize the image if requested. 
@@ -298,7 +302,8 @@ public class Instance {
 	public static BufferedImage readBufferedImage(String fileName) {
 		File fi = new File(fileName);
 		BufferedImage img = null;
-		System.out.println("Reading "+fi.getName());
+		if(DEBUG)
+			System.out.println("Reading "+fi.getName());
 		try {
 				img = ImageIO.read(fi);
 		} catch (IOException e) {

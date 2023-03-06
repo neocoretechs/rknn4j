@@ -18,8 +18,8 @@ import java.util.Arrays;
  *
  */
 public class detect_result {
-	private static boolean DEBUG = true;
-	private static boolean DEBUG_VERBOSE = true;
+	private static boolean DEBUG = false;
+	private static boolean DEBUG_VERBOSE = false;
 	String name;
 	float probability;
 	Rectangle box; //upper left x and y, width, height
@@ -31,8 +31,9 @@ public class detect_result {
 	
 	// constants for SSD
 	public static final int NUM_RESULTS = 1917;
-	public static float MIN_SCORE     = 0.4f;
+	public static float MIN_SCORE     = .1f;//0.4f;
 	public static int NUM_CLASS = 91;
+	public static final float NMS_THRESH_SSD   = 0.5f;
 	
 	// anchors for YOLOV5
 	public static final int anchor0[] = {10, 13, 16, 30, 33, 23};
@@ -85,13 +86,22 @@ public class detect_result {
 	 * @param ymax1
 	 * @return
 	 */
-	static float CalculateOverlap(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
+	static float calculateOverlapYOLO(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
 		float w = Math.max(0.0f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1) + 1.0f);
 		float h = Math.max(0.0f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1) + 1.0f);
 		float i = w * h; // total area of intersection rectangle
 		float u = (xmax0 - xmin0 + 1.0f) * (ymax0 - ymin0 + 1.0f) + (xmax1 - xmin1 + 1.0f) * (ymax1 - ymin1 + 1.0f) - i;
 		return (u <= 0.f ? 0.f : (i / u));
 	}
+	
+	static float calculateOverlapSSD(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
+		float w = Math.max(0.0f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1));
+		float h = Math.max(0.0f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1));
+		float i = w * h;
+		float u = (xmax0 - xmin0) * (ymax0 - ymin0) + (xmax1 - xmin1) * (ymax1 - ymin1) - i;
+		return (u <= 0.f ? 0.f : (i / u));
+	}
+	
 	/**
 	 * InceptionSSD detection box anchors
 	 * @param predictions Populated array which will be re-ordered
@@ -134,9 +144,13 @@ public class detect_result {
 	    for (int j = 1; j < numClasses; j++) {
 	      // x and sigmoid(x) has same monotonicity
 	      // so compare x and compare sigmoid(x) is same
-	      // float score = sigmoid(outputClasses[i*numClasses+j]);
+	      // float score = (float) sigmoid(outputClasses[i*numClasses+j]);
 	      float score = outputClasses[i * numClasses + j];
+	      if(DEBUG)
+	    	  System.out.println("filterValidResult Result#="+i+" Class#="+j+" Score="+score+" min_score="+min_score);
 	      if (score > topClassScore) {
+	    	  if(DEBUG)
+	    		  System.out.println("**filterValidResult New top class score Result#="+i+" topClassScoreIndex#="+j+" topClassScore="+score+" min_score="+min_score);
 	        topClassScoreIndex = j;
 	        topClassScore      = score;
 	      }
@@ -146,7 +160,7 @@ public class detect_result {
 	      output[1][validCount] = topClassScoreIndex;
 	      props[validCount]     = (float) sigmoid(outputClasses[i * numClasses + topClassScoreIndex]);
 	      if(DEBUG) {
-	    	  System.out.println("filterValidResult validCount="+validCount+" output[0]="+i+" output[1]="+topClassScoreIndex+" props[validCount]="+props[validCount]+" topClassSCore="+topClassScore+" min_score="+min_score);
+	    	  System.out.println("***filterValidResult New output validCount="+validCount+" output[0]="+i+" output[1]="+topClassScoreIndex+" props[validCount]="+props[validCount]+" topClassSCore="+topClassScore+" min_score="+min_score);
 	      }
 	      ++validCount;
 	    }
@@ -184,7 +198,7 @@ public class detect_result {
 				float xmax1 = outputLocations[m * 4 + 0] + outputLocations[m * 4 + 2];
 				float ymax1 = outputLocations[m * 4 + 1] + outputLocations[m * 4 + 3];
 
-				float iou = CalculateOverlap(xmin0, ymin0, xmax0, ymax0, xmin1, ymin1, xmax1, ymax1);
+				float iou = calculateOverlapYOLO(xmin0, ymin0, xmax0, ymax0, xmin1, ymin1, xmax1, ymax1);
 
 				if (iou > threshold) {
 					order[j] = -1;
@@ -221,9 +235,11 @@ public class detect_result {
 	      float xmax1 = outputLocations[m * 4 + 3];
 	      float ymax1 = outputLocations[m * 4 + 2];
 
-	      float iou = CalculateOverlap(xmin0, ymin0, xmax0, ymax0, xmin1, ymin1, xmax1, ymax1);
+	      float iou = calculateOverlapSSD(xmin0, ymin0, xmax0, ymax0, xmin1, ymin1, xmax1, ymax1);
 
 	      if (iou >= threshold) {
+				if(DEBUG)
+					System.out.printf("nmsSSD Source=%d, target=%d xmin0=%f ymin0=%f xmax0=%f ymax0=%f xmin1=%f ymin1=%f xmax1=%f ymax1=%f iou=%f >= threshold=%f overwriting output[0][j]=%d%n",i,j,xmin0,ymin0,xmax0,ymax0,xmin1,ymin1,xmax1,ymax1,iou,threshold,output[0][j]);
 	        output[0][j] = -1;
 	      }
 	    }
@@ -266,6 +282,11 @@ public class detect_result {
 	static float deqnt_affine_to_f32(byte qnt, int zp, float scale) { 
 		return ((float)qnt - (float)zp) * scale; 
 	}
+	
+	static float extractFloat(byte[] buffer, int ptr, int zp, float scale) {
+		return deqnt_affine_to_f32(buffer[ptr], zp, scale);
+	}
+
 	/**
 	 * Perform a quicksort on the indexes involved in the YOLO model.
 	 * @param input
@@ -334,18 +355,29 @@ public class detect_result {
 	  }
 	}
 	
-	static float extractFloat(byte[] buffer, int ptr, int zp, float scale) {
-		return deqnt_affine_to_f32(buffer[ptr], zp, scale);
+	/**
+	 * FLOAT <p/>
+	 * Perform post processing on the InceptionSSD output layers which was generated in INT8
+	 * @param input0 Input byte buffer from NPU run convert to predictions
+	 * @param qnt_scale 
+	 * @param qnt_zp 
+	 */
+	public static float[] process(byte[] input0, Integer qnt_zp, Float qnt_scale) {
+		float[] floatArray = new float[input0.length];
+		for(int i = 0; i < input0.length; i++)
+			floatArray[i] = extractFloat(input0, i, qnt_zp, qnt_scale);
+		return floatArray;
 	}
-
 	/**
 	 * FLOAT <p/>
 	 * Perform post processing on the InceptionSSD output layers which was generated in want_float floating point format vs INT8
 	 * @param input0 Input byte buffer from NPU run convert to predictions
 	 */
 	public static float[] process(byte[] input0) {
-		ByteBuffer byteBuffer = ByteBuffer.wrap(input0);
-		byteBuffer.order(ByteOrder.nativeOrder());
+		ByteBuffer byteBuffer0 = ByteBuffer.wrap(input0);
+		if(DEBUG)
+			System.out.println("Byte order:"+ByteOrder.nativeOrder());
+		ByteBuffer byteBuffer = byteBuffer0.order(ByteOrder.nativeOrder());
 		byteBuffer.rewind();
 		float[] floatArray = new float[input0.length / 4];
 		byteBuffer.asFloatBuffer().get(floatArray);
@@ -359,8 +391,8 @@ public class detect_result {
 	 * Process the InceptSSD arrays assembled from post processing output layers after extracting buffer data and
 	 * assembling regions and probabilities. Perform the non-maximal suppression and populate detect_result_group group object.
 	 * @param output 2 Layers output from NPU
-	 * @param filterBoxesArray Array of detection boxes
-	 * @param objProbsArray Array of object probabilities
+	 * @param predictionsArray Array of detection boxes
+	 * @param props Array of object probabilities
 	 * @param labels category labels
 	 * @param group Instance of detect_result_group to be populated by processing
 	 * @param nms_threshold Non-Maximal suppression threshold
@@ -371,12 +403,12 @@ public class detect_result {
 	 * @param scale_h
 	 * @return The size of the detected objects collection after processing
 	 */
-	static int process_arraysSSD(int[][] output, float[] filterBoxesArray, float[] objProbsArray, String[] labels, 
+	static int process_arraysSSD(int[][] output, float[] predictionsArray, float[] props, String[] labels, 
 			detect_result_group group, float nms_threshold, int validCount, int model_in_w, int model_in_h, float scale_w, float scale_h) {
 		//
-		nmsSSD(validCount, filterBoxesArray, output, nms_threshold);
+		nmsSSD(validCount, predictionsArray, output, nms_threshold);
 		if(DEBUG)
-			System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+			System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(predictionsArray));
 	
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
@@ -387,10 +419,10 @@ public class detect_result {
 			int n = output[0][i];
 		    int topClassScoreIndex = output[1][i];
 
-		    int x1 = (int)(filterBoxesArray[n * 4 + 1] * model_in_w);
-		    int y1 = (int)(filterBoxesArray[n * 4 + 0] * model_in_h);
-		    int x2 = (int)(filterBoxesArray[n * 4 + 3] * model_in_w);
-		    int y2 = (int)(filterBoxesArray[n * 4 + 2] * model_in_h);
+		    int x1 = (int)(predictionsArray[n * 4 + 1] * model_in_w);
+		    int y1 = (int)(predictionsArray[n * 4 + 0] * model_in_h);
+		    int x2 = (int)(predictionsArray[n * 4 + 3] * model_in_w);
+		    int y2 = (int)(predictionsArray[n * 4 + 2] * model_in_h);
 		    // There's a bug that always shows toothbrush?
 		    if (x1 == 0 && x2 == 0 && y1 == 0 && y2 == 0)
 		    	continue;
@@ -401,10 +433,10 @@ public class detect_result {
 		    dr.box.ymin = y1;
 		    dr.box.xmax = x2;
 		    dr.box.ymax = y2;
-		    dr.probability = objProbsArray[i];
+		    dr.probability = props[i];
 		    dr.name = labels[topClassScoreIndex];
 		    if(DEBUG)
-		    	System.out.printf("ssd result %2d: (%4d, %4d, %4d, %4d), %4.2f, %s\n", i, x1, y1, x2, y2, objProbsArray[i], labels[topClassScoreIndex]);
+		    	System.out.printf("ssd result %2d: (%4d, %4d, %4d, %4d), %4.2f, %s\n", i, x1, y1, x2, y2, props[i], labels[topClassScoreIndex]);
 		    groupArray.add(dr);
 		}
 		//group.id
@@ -473,7 +505,7 @@ public class detect_result {
 							if(DEBUG_VERBOSE )
 								System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 							if (prob > maxClassProbs) {
-								if(DEBUG)
+								if(DEBUG_VERBOSE)
 									System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
 								maxClassId    = k;
 								maxClassProbs = prob;
@@ -484,7 +516,8 @@ public class detect_result {
 						if (maxClassProbs > thres_i8){
 							float fProb = (float)(sigmoid(deqnt_affine_to_f32(maxClassProbs, zp, scale)));
 							float boxConf = (float)(sigmoid(deqnt_affine_to_f32(box_confidence, zp, scale)));
-							System.out.println("Float prob="+fProb+" boxConf="+boxConf);
+							if(DEBUG)
+								System.out.println("Float prob="+fProb+" boxConf="+boxConf);
 							objProbs.add(fProb*boxConf);
 							classId.add(maxClassId);
 							validCount++;
@@ -532,9 +565,12 @@ public class detect_result {
 				System.out.println("NMS for "+c);
 			nmsYOLO(validCount, filterBoxesArray, classIdArray, indexArray, c, nms_threshold);
 		}
-		System.out.println("NonMaximal suppression done indexArray:"+Arrays.toString(indexArray));
-		System.out.println("NonMaximal suppression done classIdArray:"+Arrays.toString(classIdArray));
-		System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		
+		if(DEBUG) {
+			System.out.println("NonMaximal suppression done indexArray:"+Arrays.toString(indexArray));
+			System.out.println("NonMaximal suppression done classIdArray:"+Arrays.toString(classIdArray));
+			System.out.println("NonMaximal suppression done filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		}
 	
 		ArrayList<detect_result> groupArray = new ArrayList<detect_result>();
 		/* box valid detect target */
@@ -726,19 +762,43 @@ public class detect_result {
 	 * @return number of objects detected from detect_result_group populated with results array
 	 */
 	public static int post_process(byte[] input0, byte[] input1, float[][] box_priors, int model_in_h, int model_in_w,
-            float nms_threshold, float scale_w, float scale_h, detect_result_group group, String[] labels) {
+            float nms_threshold, float scale_w, float scale_h, ArrayList<Integer> qnt_zps,
+            ArrayList<Float> qnt_scales, detect_result_group group, String[] labels) {
 	
 		int validCount = 0;
 		// convert input0 to 'predictions', convert input1 to 'output_classes'
 
-		float[] predictionsArray =  process(input0);
-
-		float[] outputClassesArray =  process(input1);
+		float[] predictionsArray =  process(input0, qnt_zps.get(0), qnt_scales.get(0));
+		if(DEBUG) {
+			for(int i = 0; i < NUM_RESULTS; i++) {
+				System.out.printf("prediction %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
+				predictionsArray[i * 4 + 1],
+				predictionsArray[i * 4 + 2],
+				predictionsArray[i * 4 + 3]);
+			}
+		}
+		float[] outputClassesArray =  process(input1, qnt_zps.get(1), qnt_scales.get(1));
+		if(DEBUG) {
+			  for (int i = 0; i < NUM_RESULTS; i++) {
+				    // Skip the first catch-all class.
+				    for (int j = 1; j < NUM_CLASS; j++) {
+				      System.out.printf("outputClasses Result#=%d Class#=%d outputClass=%f%n",i,j, outputClassesArray[i * NUM_CLASS + j]);
+				    }
+			  }
+		}
 		
 		int[][] output = new int[2][NUM_RESULTS];
 		float[] props = new float[NUM_RESULTS];
 
 		decodeCenterSizeBoxes(predictionsArray, box_priors);
+		if(DEBUG) {
+			for(int i = 0; i < NUM_RESULTS; i++) {
+				System.out.printf("prediction postdecodeCSB %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
+				predictionsArray[i * 4 + 1],
+				predictionsArray[i * 4 + 2],
+				predictionsArray[i * 4 + 3]);
+			}
+		}
 
 		validCount = filterValidResult(outputClassesArray, output, NUM_CLASS, props);
 		if(DEBUG)
@@ -748,20 +808,101 @@ public class detect_result {
 			return 0;
 		}
 		if(DEBUG) {
-			System.out.println("UnSorted output:"+Arrays.toString(output));
+			System.out.println("UnSorted output0:"+Arrays.toString(output[0]));
+			System.out.println("UnSorted output1:"+Arrays.toString(output[1]));
 			System.out.println("UnSorted props:"+Arrays.toString(props));
 			System.out.println("sort..");
 		}
 		sort(output, props, validCount);
 		if(DEBUG) {
 			System.out.println("sort done");
-			System.out.println("Sorted output:"+Arrays.toString(output));
+			System.out.println("Sorted output0:"+Arrays.toString(output[0]));
+			System.out.println("Sorted output1:"+Arrays.toString(output[1]));
 			System.out.println("Sorted props:"+Arrays.toString(props));
 		}
 			
 		return process_arraysSSD(output, predictionsArray, props, labels, group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
 
 	}
+	/**
+	 * FLOAT<p/>
+	 * Perform post processing on InceptSSD type result sets from neural processing unit.<p/>
+	 * Data that conforms to the parameters of InceptSSD, in a 2 layer structure of FLOAT output.<p/>
+	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
+	 * @param input0 Layer 0 output from NPU, Contains 'predictions'
+	 * @param input1 Layer 1 output from NPU Contains 'output_classes'
+	 * @param box_priors Array loaded from external box_priors source.
+	 * @param model_in_h Model input height
+	 * @param model_in_w Model input width
+	 * @param conf_threshold confidence threshold
+	 * @param nms_threshold Non maximal suppresion threshold
+	 * @param scale_w Scale width see above
+	 * @param scale_h Scale height see above
+	 * @param group Output structure initialized to accept output groups
+	 * @param labels the Class Id labels acquired from whatever source
+	 * @return number of objects detected from detect_result_group populated with results array
+	 */
+	public static int post_process(byte[] input0, byte[] input1, float[][] box_priors, int model_in_h, int model_in_w,
+            float nms_threshold, float scale_w, float scale_h, detect_result_group group, String[] labels) {
+	
+		int validCount = 0;
+		// convert input0 to 'predictions', convert input1 to 'output_classes'
 
+		float[] predictionsArray =  process(input0);
+		if(DEBUG) {
+			for(int i = 0; i < NUM_RESULTS; i++) {
+				System.out.printf("prediction %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
+				predictionsArray[i * 4 + 1],
+				predictionsArray[i * 4 + 2],
+				predictionsArray[i * 4 + 3]);
+			}
+		}
+		float[] outputClassesArray =  process(input1);
+		if(DEBUG) {
+			  for (int i = 0; i < NUM_RESULTS; i++) {
+				    // Skip the first catch-all class.
+				    for (int j = 1; j < NUM_CLASS; j++) {
+				      System.out.printf("outputClasses Result#=%d Class#=%d outputClass=%f%n",i,j, outputClassesArray[i * NUM_CLASS + j]);
+				    }
+			  }
+		}
+		
+		int[][] output = new int[2][NUM_RESULTS];
+		float[] props = new float[NUM_RESULTS];
+
+		decodeCenterSizeBoxes(predictionsArray, box_priors);
+		if(DEBUG) {
+			for(int i = 0; i < NUM_RESULTS; i++) {
+				System.out.printf("prediction postdecodeCSB %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
+				predictionsArray[i * 4 + 1],
+				predictionsArray[i * 4 + 2],
+				predictionsArray[i * 4 + 3]);
+			}
+		}
+
+		validCount = filterValidResult(outputClassesArray, output, NUM_CLASS, props);
+		if(DEBUG)
+			System.out.printf("Valid count total =%d", validCount);
+		// no object detected
+		if (validCount <= 0) {
+			return 0;
+		}
+		if(DEBUG) {
+			System.out.println("UnSorted output0:"+Arrays.toString(output[0]));
+			System.out.println("UnSorted output1:"+Arrays.toString(output[1]));
+			System.out.println("UnSorted props:"+Arrays.toString(props));
+			System.out.println("sort..");
+		}
+		sort(output, props, validCount);
+		if(DEBUG) {
+			System.out.println("sort done");
+			System.out.println("Sorted output0:"+Arrays.toString(output[0]));
+			System.out.println("Sorted output1:"+Arrays.toString(output[1]));
+			System.out.println("Sorted props:"+Arrays.toString(props));
+		}
+			
+		return process_arraysSSD(output, predictionsArray, props, labels, group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
+
+	}
 
 }

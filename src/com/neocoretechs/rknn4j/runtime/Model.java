@@ -37,6 +37,7 @@ import com.neocoretechs.rknn4j.image.detect_result_group;
  *
  */
 public class Model {
+	private static boolean DEBUG = false;
 	private rknpu2 npu = new rknpu2();
 
 	/**
@@ -72,7 +73,8 @@ public class Model {
 			for(String s: sfloat) {
 				if(s == null || s.length() == 0) 
 					continue;
-				System.out.println("i="+i+" cnt="+cnt+" "+s);
+				if(DEBUG )
+					System.out.println("i="+i+" cnt="+cnt+" "+s);
 				ret[i][cnt++] = Float.parseFloat(s);
 			}
 		}
@@ -331,14 +333,25 @@ public class Model {
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		detect_result_group drg = new detect_result_group();
-		if(ioNum.getN_output() == 2) {
+		if(ioNum.getN_output() == 2) { // InceptionSSD 2 layers output
 			float[][] boxPriors = loadBoxPriors("model/box_priors.txt",detect_result.NUM_RESULTS);
+			// If wantFloat is false, we would need the zero point and scaling
+			//ArrayList<Float> scales = new ArrayList<Float>();
+			//ArrayList<Integer> zps = new ArrayList<Integer>();
+			//for(int i = 0; i < ioNum.getN_output(); i++) {
+			//	rknn_tensor_attr outputAttr = tensorAttrs.get(i);
+			//	zps.add(outputAttr.getZp());
+			//	scales.add(outputAttr.getScale());
+			//}
+			//detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+			//		dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
+			//		scale_w, scale_h, zps, scales, drg, labels);
 			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
-					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH, 
+					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
 					scale_w, scale_h, drg, labels);
 			System.out.println("Detected Result Group:"+drg);
 			Instance.drawDetections(bimage, drg);
-		} else {
+		} else { //YOLOv5 3 layers output
 			ArrayList<Float> scales = new ArrayList<Float>();
 			ArrayList<Integer> zps = new ArrayList<Integer>();
 			for(int i = 0; i < ioNum.getN_output(); i++) {

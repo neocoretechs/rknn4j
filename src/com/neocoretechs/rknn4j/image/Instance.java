@@ -53,14 +53,44 @@ public class Instance {
 		}
 		this.imageByteArray = bb.array();
 	}
-	/** Constructs the Instance from a byte array. */
+	
+	/**
+	 * Constructs the Instance from a byte array.
+	 * @param name Image file name
+	 * @param width image width
+	 * @param height image height
+	 * @param channels image channels
+	 * @param rawImage raw image bytes
+	 * @param fixWidth target resize width
+	 * @param fixHeight target resize height
+	 * @param label image label option
+	 */
 	public Instance(String name, int width, int height, int channels, byte[] rawImage, int fixWidth, int fixHeight, String label) {
+		this(name, width, height, channels, rawImage, fixWidth, fixHeight, label, false);
+	}
+	
+	/**
+	 * Constructs the Instance from a byte array.
+	 * @param name Image file name
+	 * @param width image width
+	 * @param height image height
+	 * @param channels image channels
+	 * @param rawImage raw image bytes
+	 * @param fixWidth target resize width
+	 * @param fixHeight target resize height
+	 * @param label image label option
+	 * @param rga true to use RockChip Graphics Accelerator; IMAGE MUST HAVE STRIDE 16, REQUIRES ROOT PROCESS
+	 */
+	public Instance(String name, int width, int height, int channels, byte[] rawImage, int fixWidth, int fixHeight, String label, boolean rga) {
 		this.name = name;
 		this.label = label;
 		this.width = fixWidth;
 		this.height = fixHeight;
 		this.channels = channels;
-		this.imageByteArray = getRGB(rawImage, width, height, channels, fixWidth, fixHeight);
+		if(rga)
+			this.imageByteArray = getRGARGB(rawImage, width, height, channels, fixWidth, fixHeight);
+		else
+			this.imageByteArray = getRGB(rawImage, width, height, channels, fixWidth, fixHeight);
 		if(this.imageByteArray == null)
 			throw new RuntimeException("Image resize error");
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
@@ -335,7 +365,10 @@ public class Instance {
 		dims[1] = sourceImage.getHeight();
 		return dims;
 	}
-	
+	/**
+	 * Draw the detection boxes and probabilities and save to file detections.jpg
+	 * @param detections
+	 */
 	public void drawDetections(detect_result_group detections) {
 		if(detections == null || detections.results == null)
 			return;
@@ -353,7 +386,11 @@ public class Instance {
 			e.printStackTrace();
 		}
 	}
-	
+	/**
+	 * Draw the detection boxes and probabilities to passed image and save to detections.jpg
+	 * @param bimage
+	 * @param detections
+	 */
 	public static void drawDetections(BufferedImage bimage, detect_result_group detections) {
 		if(detections == null || detections.results == null)
 			return;
@@ -371,6 +408,32 @@ public class Instance {
 			e.printStackTrace();
 		}
 	}
+	/**
+	 * Draw the detection boxes and probabilities to image instance and return as JPEG byte array
+	 * @param detections
+	 * @return
+	 */
+	public byte[] detectionsTOJPEGBytes(detect_result_group detections) {
+		if(detections == null || detections.results == null)
+			return null;
+		Graphics graphics = image.getGraphics();
+		for(detect_result dr: detections.results) {
+			graphics.setColor(Color.CYAN);
+			graphics.drawRect(dr.box.xmin, dr.box.ymin, dr.box.xmax-dr.box.xmin, dr.box.ymax-dr.box.ymin);
+			graphics.setColor(Color.YELLOW);
+			graphics.setFont(new Font("Courier", Font.PLAIN, 10));
+			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
+		}
+		try {
+			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			ImageIO.write(image, "jpg", bos);
+			return bos.toByteArray();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
 	public String getName() {
 		return name;
 	}
@@ -395,4 +458,5 @@ public class Instance {
 	}
 	
 	public native byte[] getRGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
+	public native byte[] getRGARGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
 }

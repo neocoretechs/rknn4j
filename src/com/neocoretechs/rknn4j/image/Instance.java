@@ -369,7 +369,7 @@ public class Instance {
 	 * Draw the detection boxes and probabilities and save to file detections.jpg
 	 * @param detections
 	 */
-	public void drawDetections(detect_result_group detections) {
+	public void saveDetections(detect_result_group detections) {
 		if(detections == null || detections.results == null)
 			return;
 		Graphics graphics = image.getGraphics();
@@ -386,12 +386,25 @@ public class Instance {
 			e.printStackTrace();
 		}
 	}
+	public BufferedImage drawDetections(detect_result_group detections) {
+		if(detections == null || detections.results == null)
+			return null;
+		Graphics graphics = image.getGraphics();
+		for(detect_result dr: detections.results) {
+			graphics.setColor(Color.CYAN);
+			graphics.drawRect(dr.box.xmin, dr.box.ymin, dr.box.xmax-dr.box.xmin, dr.box.ymax-dr.box.ymin);
+			graphics.setColor(Color.YELLOW);
+			graphics.setFont(new Font("Courier", Font.PLAIN, 10));
+			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
+		}
+		return image;
+	}
 	/**
 	 * Draw the detection boxes and probabilities to passed image and save to detections.jpg
 	 * @param bimage
 	 * @param detections
 	 */
-	public static void drawDetections(BufferedImage bimage, detect_result_group detections) {
+	public static void saveDetections(BufferedImage bimage, detect_result_group detections) {
 		if(detections == null || detections.results == null)
 			return;
 		Graphics graphics = bimage.getGraphics();
@@ -413,7 +426,7 @@ public class Instance {
 	 * @param detections
 	 * @return
 	 */
-	public byte[] detectionsTOJPEGBytes(detect_result_group detections) {
+	public byte[] detectionsToJPEGBytes(detect_result_group detections) {
 		if(detections == null || detections.results == null)
 			return null;
 		Graphics graphics = image.getGraphics();

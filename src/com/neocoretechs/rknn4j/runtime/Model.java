@@ -314,9 +314,9 @@ public class Model {
 		String[] labels = null;
 		if(ioNum.getN_output() == 2) { // InceptionSSD
 			wantFloat = true;
-			labels = loadLines("model/coco_labels_list.txt");
+			labels = loadLines("/etc/model/coco_labels_list.txt");
 		} else { //assume YOLOv5
-			labels = loadLines("model/coco_80_labels_list.txt");
+			labels = loadLines("/etc/model/coco_80_labels_list.txt");
 		}
 		// Set input data, example of setInputs
 		m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
@@ -350,7 +350,7 @@ public class Model {
 					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
 					scale_w, scale_h, drg, labels);
 			System.out.println("Detected Result Group:"+drg);
-			Instance.drawDetections(bimage, drg);
+			Instance.saveDetections(bimage, drg);
 		} else { //YOLOv5 3 layers output
 			ArrayList<Float> scales = new ArrayList<Float>();
 			ArrayList<Integer> zps = new ArrayList<Integer>();
@@ -363,7 +363,7 @@ public class Model {
 				widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 				scale_w, scale_h, zps, scales, drg, labels);
 			System.out.println("Detected Result Group:"+drg);
-			image.drawDetections(drg);
+			image.saveDetections(drg);
 		}
 		m.destroy(ctx);
 	}

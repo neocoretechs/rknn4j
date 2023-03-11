@@ -16,7 +16,7 @@ public class rknpu2 {
 	 private static final AtomicReference<LibraryState> libraryLoaded = new AtomicReference<>(LibraryState.NOT_LOADED);
 	 
 	 static {
-		    rknpu2.loadLibrary(Arrays.asList(new File(System.getProperty("java.library.path")).list()));
+		    rknpu2.loadLibrary(Arrays.asList(new File("/usr/lib/jni").list()));
 	 }
 
 	 /**
@@ -38,7 +38,7 @@ public class rknpu2 {
 		          //System.out.println(path);
 		          if(path.endsWith(".so") || path.endsWith(".dll")) {
 		        	  System.out.println("Trying load for:"+path);
-		        	  System.load(new File(path).getAbsolutePath());
+		        	  System.load("/usr/lib/jni/"+path/*new File(path).getAbsolutePath()*/);
 		        	  success = true;
 		          }
 		        } catch (final UnsatisfiedLinkError e) {

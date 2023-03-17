@@ -26,7 +26,7 @@ public class detect_result {
 	
 	public static final int OBJ_CLASS_NUM  =   80;
 	public static final float NMS_THRESH   = 0.45f;
-	public static final float BOX_THRESH   = 0.10f;//   0.25f;
+	public static final float BOX_THRESH   = 0.15f;//   0.25f;
 	public static final int PROP_BOX_SIZE   = (5+OBJ_CLASS_NUM);
 	
 	// constants for SSD
@@ -744,9 +744,7 @@ public class detect_result {
 	}
 	
 	/**
-	 * FLOAT<p/>
-	 * Perform post processing on InceptSSD type result sets from neural processing unit.<p/>
-	 * Data that conforms to the parameters of InceptSSD, in a 2 layer structure of FLOAT output.<p/>
+	 * Data that conforms to the parameters of a 2 layer structure of quantized INT8 output.<p/>
 	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
 	 * @param input0 Layer 0 output from NPU, Contains 'predictions'
 	 * @param input1 Layer 1 output from NPU Contains 'output_classes'
@@ -757,6 +755,8 @@ public class detect_result {
 	 * @param nms_threshold Non maximal suppresion threshold
 	 * @param scale_w Scale width see above
 	 * @param scale_h Scale height see above
+	 * @param qnt_zps Zero point quantization for each layer
+	 * @param qnt_scales Scale factors for quantization each layer
 	 * @param group Output structure initialized to accept output groups
 	 * @param labels the Class Id labels acquired from whatever source
 	 * @return number of objects detected from detect_result_group populated with results array

@@ -34,6 +34,8 @@ public class Instance {
 	private byte[] imageByteArray;
 	private int[][] gray_image;
 
+	public Instance() {}
+	
 	/** Constructs the Instance from a BufferedImage. */
 	public Instance(String name, BufferedImage image, String label) {
 		this.name = name;
@@ -472,4 +474,5 @@ public class Instance {
 	
 	public native byte[] getRGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
 	public native byte[] getRGARGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
+	//public native byte[] getCapture(int cam);
 }

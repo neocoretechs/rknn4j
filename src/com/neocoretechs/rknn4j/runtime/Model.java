@@ -159,12 +159,12 @@ public class Model {
 	 * @param buf image bytes in format to match model
 	 * @throws RuntimeException i input call fails.
 	 */
-	public void setInputs(long ctx, int width, int height, int channels, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
+	public void setInputs(long ctx, int size, rknn_tensor_type type, rknn_tensor_format fmt, byte[] buf) {
 		rknn_input[] inputs = new rknn_input[1];
 		inputs[0] = new rknn_input();
 		inputs[0].setIndex(0);
 		inputs[0].setType(type);
-		inputs[0].setSize( width * height * channels);
+		inputs[0].setSize(size);
 		inputs[0].setFmt(fmt);
 		inputs[0].setBuf(buf);
 		inputs[0].setPass_through(false);
@@ -319,7 +319,7 @@ public class Model {
 			labels = loadLines("/etc/model/coco_80_labels_list.txt");
 		}
 		// Set input data, example of setInputs
-		m.setInputs(ctx,widthHeightChannel[0],widthHeightChannel[1],widthHeightChannel[2],inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
+		m.setInputs(ctx,inputAttrs[0].getSize(),inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
 		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
 		System.out.println("Total category labels="+labels.length);
 		System.out.println("Setup time:"+(System.currentTimeMillis()-tim)+" ms.");

@@ -439,14 +439,32 @@ public class Instance {
 			graphics.setFont(new Font("Courier", Font.PLAIN, 10));
 			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
 		}
+		ByteArrayOutputStream bos = null;
+		byte[] r = null;
 		try {
-			ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			bos = new ByteArrayOutputStream();
 			ImageIO.write(image, "jpg", bos);
-			return bos.toByteArray();
+			r = bos.toByteArray();
+			bos.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		return null;
+		return r;
+	}
+	
+	public static byte[] resizeRawJPEG(byte[] rawImage, int width, int height, int channels, int fixWidth, int fixHeight) {
+		Instance ins = new Instance("tmp",width, height, channels, rawImage, fixWidth, fixHeight,"tmp");
+		ByteArrayOutputStream bos = null;
+		byte[] r = null;
+		try {
+			bos = new ByteArrayOutputStream();
+			ImageIO.write(ins.image, "jpg", bos);
+			r = bos.toByteArray();
+			bos.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return r;
 	}
 	
 	public String getName() {

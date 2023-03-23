@@ -6,6 +6,8 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import com.neocoretechs.rknn4j.rknn_output;
+
 /**
  * Postprocessing for the RockChip RK3588 NPU output models.<p/>
  * Processing depends on the particular model used, although many concepts are shared, specific detail regarding 
@@ -533,6 +535,84 @@ public class detect_result {
 		return validCount;
 	}
 	
+	/**
+	 * FLOAT <p/>
+	 * Perform post processing on one of the output layers which was generated in FLOAT format (YOLO)
+	 * @param input Input float buffer from NPU run
+	 * @param anchor float array of anchor boxes
+	 * @param grid_h grid height
+	 * @param grid_w grid width
+	 * @param height height from model
+	 * @param width width from model
+	 * @param stride stride from model
+	 * @param boxes float collection of boxes populated by method x,y,width,height
+	 * @param objProbs float collection of object probabilities populated by method
+	 * @param classId int collection of class Id indexes populated by method
+	 * @param threshold Box threshold constant to pass to unsigmoid function to determine confidence in box overlap
+	 * @param zp Affine conversion factor compressing float to INT8 Zero Point offset for quantization
+	 * @param scale Used to map input range to output range for quantization of float to INT8
+	 * @return Count of instances where max probability exceeded NMS threshold
+	 */
+	public static int process(float[] input, int[] anchor, int grid_h, int grid_w, int height, int width, int stride,
+            ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold) {
+		int    validCount = 0;
+		int    grid_len   = grid_h * grid_w;
+		float  thres      = (float) unsigmoid(threshold);
+		for (int a = 0; a < 3; a++) {
+			for (int i = 0; i < grid_h; i++) {
+				for (int j = 0; j < grid_w; j++) {
+					float box_confidence = input[(PROP_BOX_SIZE * a + 4) * grid_len + i * grid_w + j];
+					if (box_confidence >= thres) {
+						int     offset = (PROP_BOX_SIZE * a) * grid_len + i * grid_w + j;
+						float   box_x  = (float) (sigmoid(input[offset]) * 2.0 - 0.5);
+						float   box_y  = (float) (sigmoid(input[offset+grid_len]) * 2.0 - 0.5);
+						float   box_w  = (float) (sigmoid(input[offset + (2 * grid_len)]) * 2.0);
+						float   box_h  = (float) (sigmoid(input[offset + (3 * grid_len)]) * 2.0);
+						if(DEBUG )
+							System.out.printf("Extracted raw coords %f %f %f %f%n", box_x,box_y,box_w,box_h);
+						box_x          = (box_x + j) * (float)stride;
+						box_y          = (box_y + i) * (float)stride;
+						box_w          = box_w * box_w * (float)anchor[a * 2];
+						box_h          = box_h * box_h * (float)anchor[a * 2 + 1];
+						box_x -= (box_w / 2.0);
+						box_y -= (box_h / 2.0);
+						if(DEBUG )
+							System.out.printf("Processed raw coords %f %f %f %f%n", box_x,box_y,box_w,box_h);
+						float maxClassProbs = input[offset + (5 * grid_len)];
+						int    maxClassId    = 0;
+						for (int k = 1; k < OBJ_CLASS_NUM; k++) {
+							float prob = input[offset+((5 + k) * grid_len)];
+							if(DEBUG_VERBOSE )
+								System.out.println("K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
+							if (prob > maxClassProbs) {
+								if(DEBUG_VERBOSE)
+									System.out.println("****K="+k+" prob="+prob+" maxClassProbs="+maxClassProbs);
+								maxClassId    = k;
+								maxClassProbs = prob;
+							}
+						}
+						if(DEBUG_VERBOSE)
+							System.out.println("maxClassProbs="+maxClassProbs+" thres_i8="+thres+" box_conf="+box_confidence+" maxClassId="+maxClassId);
+						if (maxClassProbs > thres){
+							float fProb = (float)(sigmoid(maxClassProbs));
+							float boxConf = (float)(sigmoid(box_confidence));
+							if(DEBUG)
+								System.out.println("Float prob="+fProb+" boxConf="+boxConf);
+							objProbs.add(fProb*boxConf);
+							classId.add(maxClassId);
+							validCount++;
+							boxes.add(box_x);
+							boxes.add(box_y);
+							boxes.add(box_w);
+							boxes.add(box_h);
+						}
+					}
+				}
+			}
+		}
+		return validCount;
+	}
+	
 	static int clamp(float val, int min, int max) { return (int) (val > min ? (val < max ? val : max) : min); }
 	
 	/**
@@ -616,9 +696,7 @@ public class detect_result {
 	 * INT8 AFFINE<p/>
 	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if int8 output.
-	 * @param input0 Layer 0 output from NPU
-	 * @param input1 Layer 1 output from NPU
-	 * @param input2 Layer 2 output from NPU
+	 * @param bufs rknn_output[] output layers from NPU
 	 * @param model_in_h Model input height
 	 * @param model_in_w Model input width
 	 * @param conf_threshold confidence threshold
@@ -631,7 +709,7 @@ public class detect_result {
 	 * @param labels the Class Id labels acquired from whatever source
 	 * @return number of objects detected from detect_result_group populated with results array
 	 */
-	public static int post_process(byte[] input0, byte[] input1, byte[] input2, int model_in_h, int model_in_w, float conf_threshold,
+	public static int post_process(rknn_output[] bufs, int model_in_h, int model_in_w, float conf_threshold,
             float nms_threshold, float scale_w, float scale_h, ArrayList<Integer> qnt_zps,
             ArrayList<Float> qnt_scales, detect_result_group group, String[] labels) {
 
@@ -652,7 +730,7 @@ public class detect_result {
 		int grid_h0     = model_in_h / stride0;
 		int grid_w0     = model_in_w / stride0;
 		int validCount0 = 0;
-		validCount0 = process(input0, anchor0, grid_h0, grid_w0, model_in_h, model_in_w, stride0, filterBoxes0, objProbs0,
+		validCount0 = process(bufs[0].getBuf(), anchor0, grid_h0, grid_w0, model_in_h, model_in_w, stride0, filterBoxes0, objProbs0,
                    classId0, conf_threshold, qnt_zps.get(0), qnt_scales.get(0));
 
 		// stride 16
@@ -660,7 +738,8 @@ public class detect_result {
 		int grid_h1     = model_in_h / stride1;
 		int grid_w1     = model_in_w / stride1;
 		int validCount1 = 0;
-		validCount1 = process(input1, anchor1, grid_h1, grid_w1, model_in_h, model_in_w, stride1, filterBoxes1, objProbs1,
+		if(bufs.length > 1)
+			validCount1 = process(bufs[1].getBuf(), anchor1, grid_h1, grid_w1, model_in_h, model_in_w, stride1, filterBoxes1, objProbs1,
                    classId1, conf_threshold, qnt_zps.get(1), qnt_scales.get(1));
 
 		// stride 32
@@ -668,7 +747,8 @@ public class detect_result {
 		int grid_h2     = model_in_h / stride2;
 		int grid_w2     = model_in_w / stride2;
 		int validCount2 = 0;
-		validCount2 = process(input2, anchor2, grid_h2, grid_w2, model_in_h, model_in_w, stride2, filterBoxes2, objProbs2,
+		if(bufs.length > 2)
+			validCount2 = process(bufs[2].getBuf(), anchor2, grid_h2, grid_w2, model_in_h, model_in_w, stride2, filterBoxes2, objProbs2,
                    classId2, conf_threshold, qnt_zps.get(2), qnt_scales.get(2));
 
 		int validCount = validCount0 + validCount1 + validCount2;
@@ -742,7 +822,138 @@ public class detect_result {
 				group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
 
 	}
-	
+	/**
+	 * FLOAT<p/>
+	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
+	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if int8 output.
+	 * @param bufs rknn_output[] output layers from NPU
+	 * @param model_in_h Model input height
+	 * @param model_in_w Model input width
+	 * @param conf_threshold confidence threshold
+	 * @param nms_threshold Non maximal suppresion threshold
+	 * @param scale_w Scale width see above
+	 * @param scale_h Scale height see above
+	 * @param group Output structure initialized to accept output groups
+	 * @param labels the Class Id labels acquired from whatever source
+	 * @return number of objects detected from detect_result_group populated with results array
+	 */
+	public static int post_process(rknn_output[] bufs, int model_in_h, int model_in_w, float conf_threshold,
+            float nms_threshold, float scale_w, float scale_h, detect_result_group group, String[] labels) {
+
+		ArrayList<Float> filterBoxes0 = new ArrayList<Float>();
+		ArrayList<Float> objProbs0 = new ArrayList<Float>();
+		ArrayList<Integer> classId0 = new ArrayList<Integer>();
+		
+		ArrayList<Float> filterBoxes1 = new ArrayList<Float>();
+		ArrayList<Float> objProbs1 = new ArrayList<Float>();
+		ArrayList<Integer> classId1 = new ArrayList<Integer>();
+		
+		ArrayList<Float> filterBoxes2 = new ArrayList<Float>();
+		ArrayList<Float> objProbs2 = new ArrayList<Float>();
+		ArrayList<Integer> classId2 = new ArrayList<Integer>();
+
+		// stride 8
+		int stride0     = 8;
+		int grid_h0     = model_in_h / stride0;
+		int grid_w0     = model_in_w / stride0;
+		int validCount0 = 0;
+		float[] fbuf0 = process(bufs[0].getBuf());
+		validCount0 = process(fbuf0, anchor0, grid_h0, grid_w0, model_in_h, model_in_w, stride0, filterBoxes0, objProbs0,
+                   classId0, conf_threshold);
+
+		// stride 16
+		int stride1     = 16;
+		int grid_h1     = model_in_h / stride1;
+		int grid_w1     = model_in_w / stride1;
+		int validCount1 = 0;
+		if(bufs.length > 1) {
+			float[] fbuf1 = process(bufs[1].getBuf());
+			validCount1 = process(fbuf1, anchor1, grid_h1, grid_w1, model_in_h, model_in_w, stride1, filterBoxes1, objProbs1,
+                   classId1, conf_threshold);
+		}
+
+		// stride 32
+		int stride2     = 32;
+		int grid_h2     = model_in_h / stride2;
+		int grid_w2     = model_in_w / stride2;
+		int validCount2 = 0;
+		if(bufs.length > 2) {
+			float[] fbuf2 = process(bufs[2].getBuf());
+			validCount2 = process(fbuf2, anchor2, grid_h2, grid_w2, model_in_h, model_in_w, stride2, filterBoxes2, objProbs2,
+                   classId2, conf_threshold);
+		}
+
+		int validCount = validCount0 + validCount1 + validCount2;
+		if(DEBUG)
+			System.out.printf("Valid count total =%d, 0=%d, 1=%d, 2=%d%n", validCount,validCount0,validCount1,validCount2);
+		// no object detected
+		if (validCount <= 0) {
+			return 0;
+		}
+
+		int[] indexArray = new int[validCount];
+		for (int i = 0; i < validCount; i++) {
+			indexArray[i] = i;
+		}
+		float[] objProbsArray =  new float[validCount];
+		int i = 0;
+		for(int j = 0; j < objProbs0.size(); j++) {
+			objProbsArray[i++] = objProbs0.get(j).floatValue();
+		}
+		for(int j = 0; j < objProbs1.size(); j++) {
+			objProbsArray[i++] = objProbs1.get(j).floatValue();
+		}
+		for(int j = 0; j < objProbs2.size(); j++) {
+			objProbsArray[i++] = objProbs2.get(j).floatValue();
+		}
+		if(DEBUG) {
+			System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
+			System.out.println("Quicksort..");
+		}
+		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
+		if(DEBUG) {
+			System.out.println("Quicksort done");	
+			System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		}
+		
+		float[] filterBoxesArray = new float[validCount*4];
+		if(DEBUG)
+			System.out.println("Filterboxes sizes 0="+filterBoxes0.size()+" 1="+filterBoxes1.size()+" 2="+filterBoxes2.size());
+		i = 0;
+		for(int j = 0; j < filterBoxes0.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes0.get(j);
+		}
+		for(int j = 0; j < filterBoxes1.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes1.get(j);
+		}
+		for(int j = 0; j < filterBoxes2.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes2.get(j);
+		}
+		
+		int[] classIdArray = new int[validCount];
+		if(DEBUG)
+			System.out.println("ClassId sizes 0="+classId0.size()+" 1="+classId1.size()+" 2="+classId2.size());
+		i = 0;
+		for(int j = 0; j < classId0.size(); j++) {
+			classIdArray[i++] = classId0.get(j);
+		}
+		for(int j = 0; j < classId1.size(); j++) {
+			classIdArray[i++] = classId1.get(j);
+		}
+		for(int j = 0; j < classId2.size(); j++) {
+			classIdArray[i++] = classId2.get(j);
+		}
+		if(DEBUG) {
+			System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
+			System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		}
+		
+		return process_arraysYOLO(classIdArray, indexArray, filterBoxesArray, objProbsArray, labels, 
+				group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
+
+	}
 	/**
 	 * Data that conforms to the parameters of a 2 layer structure of quantized INT8 output.<p/>
 	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
@@ -770,20 +981,20 @@ public class detect_result {
 
 		float[] predictionsArray =  process(input0, qnt_zps.get(0), qnt_scales.get(0));
 		if(DEBUG) {
-			for(int i = 0; i < NUM_RESULTS; i++) {
-				System.out.printf("prediction %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
-				predictionsArray[i * 4 + 1],
-				predictionsArray[i * 4 + 2],
-				predictionsArray[i * 4 + 3]);
+			System.out.println("Predictions array:"+predictionsArray.length);
+			for(int i = 0; i < predictionsArray.length; i+=4) {
+				System.out.printf("SSD postproc prediction %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i],
+				predictionsArray[i+ 1],
+				predictionsArray[i+ 2],
+				predictionsArray[i+ 3]);
 			}
 		}
 		float[] outputClassesArray =  process(input1, qnt_zps.get(1), qnt_scales.get(1));
+
 		if(DEBUG) {
-			  for (int i = 0; i < NUM_RESULTS; i++) {
-				    // Skip the first catch-all class.
-				    for (int j = 1; j < NUM_CLASS; j++) {
-				      System.out.printf("outputClasses Result#=%d Class#=%d outputClass=%f%n",i,j, outputClassesArray[i * NUM_CLASS + j]);
-				    }
+			System.out.println("Output classes array:"+outputClassesArray.length);
+			  for (int i = 0; i < outputClassesArray.length; i++) {
+				      System.out.printf("outputClasses Class#=%d outputClass=%f%n",i, outputClassesArray[i]);
 			  }
 		}
 		
@@ -792,7 +1003,7 @@ public class detect_result {
 
 		decodeCenterSizeBoxes(predictionsArray, box_priors);
 		if(DEBUG) {
-			for(int i = 0; i < NUM_RESULTS; i++) {
+			for(int i = 0; i < predictionsArray.length; i+=4) {
 				System.out.printf("prediction postdecodeCSB %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
 				predictionsArray[i * 4 + 1],
 				predictionsArray[i * 4 + 2],
@@ -850,7 +1061,7 @@ public class detect_result {
 
 		float[] predictionsArray =  process(input0);
 		if(DEBUG) {
-			for(int i = 0; i < NUM_RESULTS; i++) {
+			for(int i = 0; i < predictionsArray.length; i+=4) {
 				System.out.printf("prediction %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
 				predictionsArray[i * 4 + 1],
 				predictionsArray[i * 4 + 2],
@@ -859,11 +1070,9 @@ public class detect_result {
 		}
 		float[] outputClassesArray =  process(input1);
 		if(DEBUG) {
-			  for (int i = 0; i < NUM_RESULTS; i++) {
+			  for (int i = 0; i < outputClassesArray.length; i++) {
 				    // Skip the first catch-all class.
-				    for (int j = 1; j < NUM_CLASS; j++) {
-				      System.out.printf("outputClasses Result#=%d Class#=%d outputClass=%f%n",i,j, outputClassesArray[i * NUM_CLASS + j]);
-				    }
+				      System.out.printf("outputClasses Class#=%d outputClass=%f%n",i, outputClassesArray[i]);
 			  }
 		}
 		
@@ -872,7 +1081,7 @@ public class detect_result {
 
 		decodeCenterSizeBoxes(predictionsArray, box_priors);
 		if(DEBUG) {
-			for(int i = 0; i < NUM_RESULTS; i++) {
+			for(int i = 0; i < predictionsArray.length; i+=4) {
 				System.out.printf("prediction postdecodeCSB %d xmin=%f ymin=%f xmax=%f ymax=%f%n", i,predictionsArray[i * 4 + 0],
 				predictionsArray[i * 4 + 1],
 				predictionsArray[i * 4 + 2],

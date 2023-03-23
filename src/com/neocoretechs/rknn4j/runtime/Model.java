@@ -39,6 +39,9 @@ import com.neocoretechs.rknn4j.image.detect_result_group;
 public class Model {
 	private static boolean DEBUG = false;
 	private rknpu2 npu = new rknpu2();
+	
+	private static boolean INCEPTION = false;
+	private static boolean WANTFLOAT = false;
 
 	/**
 	 * Load a file and return byte array, presumably to load model from storage.
@@ -263,13 +266,16 @@ public class Model {
 	}
 	
 	/**
-	 * java com.neocoretechs.rknn4j.runtime.Model <model_file> <image jpeg file>
+	 * java com.neocoretechs.rknn4j.runtime.Model <model_file> <image jpeg file> <inception | yolo>
 	 * @param args
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
+		if(args.length < 3) {
+			System.out.println("usage: java com.neocoretechs.rknn4j.runtime.Model <model_file> <image jpeg file> <inception | yolo>");
+			System.exit(1);
+		}
 		Model m = new Model();
-		boolean wantFloat = false;
 		byte[] model = m.load(args[0]);
 		long tim = System.currentTimeMillis();
 		long ctx = m.init(model);
@@ -278,6 +284,8 @@ public class Model {
 		rknn_input_output_num ioNum = m.queryIONumber(ctx);
 		System.out.printf("%s %s%n", sdk, ioNum);
 		BufferedImage bimage = Instance.readBufferedImage(args[1]);
+		if(args[3].equals("inception"))
+			INCEPTION = true;
 		Instance image = null;
 		rknn_tensor_attr[] inputAttrs = new rknn_tensor_attr[ioNum.getN_input()];
 		for(int i = 0; i < ioNum.getN_input(); i++) {
@@ -292,13 +300,7 @@ public class Model {
 	  	File fi = new File(args[1]);
 	  	byte[] imageInByte = Files.readAllBytes(fi.toPath());
 	  	image = new Instance(args[1],dimsImage[0],dimsImage[1],widthHeightChannel[2],imageInByte,widthHeightChannel[0],widthHeightChannel[1],args[1]);
-		//if(widthHeightChannel[0] != dimsImage[0] || widthHeightChannel[1] != dimsImage[1]) {
-		//	System.out.printf("Resizing image from %s to %s%n",Arrays.toString(dimsImage),Arrays.toString(widthHeightChannel));
-		//	image = new Instance(args[1], bimage, args[1], widthHeightChannel[0], widthHeightChannel[1]);
-			//ImageIO.write(image.getImage(), "jpg", new File("resizedImage.jpg"));
-		//} else {
-		//	image = new Instance(args[1], bimage, args[1]);
-		//}
+
 		ArrayList<rknn_tensor_attr> tensorAttrs = new ArrayList<rknn_tensor_attr>();
 		for(int i = 0; i < ioNum.getN_output(); i++) {
 			rknn_tensor_attr outputAttr = m.queryOutputAttrs(ctx, i);
@@ -308,19 +310,18 @@ public class Model {
 		}
 		//
 		System.out.println("Setting up I/O..");
-		// no preallocation of output image buffers for YOLO, no force floating output
-		// InceptionSSD required want_float = true, it has 2 layers of output vs 3 for YOLO
+
 		tim = System.currentTimeMillis();
 		String[] labels = null;
-		if(ioNum.getN_output() == 2) { // InceptionSSD
-			wantFloat = true;
+		if(INCEPTION) { // InceptionSSD
+			//wantFloat = true; contrary to demo, we will use INT8
 			labels = loadLines("/etc/model/coco_labels_list.txt");
 		} else { //assume YOLOv5
 			labels = loadLines("/etc/model/coco_80_labels_list.txt");
 		}
 		// Set input data, example of setInputs
 		m.setInputs(ctx,inputAttrs[0].getSize(),inputAttrs[0].getType(),inputAttrs[0].getFmt(),image.getRGB888());
-		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, wantFloat); // last param is wantFloat, to force output to floating
+		rknn_output[] outputs = m.setOutputs(ioNum.getN_output(), false, WANTFLOAT); // last param is wantFloat, to force output to floating
 		System.out.println("Total category labels="+labels.length);
 		System.out.println("Setup time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Preparing to run...");
@@ -333,35 +334,40 @@ public class Model {
 		System.out.println("Get outputs time:"+(System.currentTimeMillis()-tim)+" ms.");
 		System.out.println("Outputs:"+Arrays.toString(outputs));
 		detect_result_group drg = new detect_result_group();
-		if(ioNum.getN_output() == 2) { // InceptionSSD 2 layers output
-			float[][] boxPriors = loadBoxPriors("model/box_priors.txt",detect_result.NUM_RESULTS);
-			// If wantFloat is false, we would need the zero point and scaling
-			//ArrayList<Float> scales = new ArrayList<Float>();
-			//ArrayList<Integer> zps = new ArrayList<Integer>();
-			//for(int i = 0; i < ioNum.getN_output(); i++) {
-			//	rknn_tensor_attr outputAttr = tensorAttrs.get(i);
-			//	zps.add(outputAttr.getZp());
-			//	scales.add(outputAttr.getScale());
-			//}
-			//detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
-			//		dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
-			//		scale_w, scale_h, zps, scales, drg, labels);
-			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
-					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
-					scale_w, scale_h, drg, labels);
-			System.out.println("Detected Result Group:"+drg);
-			Instance.saveDetections(bimage, drg);
-		} else { //YOLOv5 3 layers output
-			ArrayList<Float> scales = new ArrayList<Float>();
-			ArrayList<Integer> zps = new ArrayList<Integer>();
+		ArrayList<Float> scales = null;
+		ArrayList<Integer> zps = null;
+		if(WANTFLOAT) {
+			scales = new ArrayList<Float>();
+			zps = new ArrayList<Integer>();
 			for(int i = 0; i < ioNum.getN_output(); i++) {
 				rknn_tensor_attr outputAttr = tensorAttrs.get(i);
 				zps.add(outputAttr.getZp());
 				scales.add(outputAttr.getScale());
 			}
-			detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), outputs[2].getBuf(),
-				widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
-				scale_w, scale_h, zps, scales, drg, labels);
+		}
+		if(INCEPTION) { // InceptionSSD 2 layers output
+			float[][] boxPriors = loadBoxPriors("/etc/model/box_priors.txt",detect_result.NUM_RESULTS);
+			if(WANTFLOAT) {
+				detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
+					scale_w, scale_h, drg, labels);
+			} else {
+				detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
+					scale_w, scale_h, drg, labels);
+			}
+			System.out.println("Detected Result Group:"+drg);
+			Instance.saveDetections(bimage, drg);
+		} else { //YOLOv5 3 layers output
+			if(WANTFLOAT) {
+				detect_result.post_process(outputs,
+						widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
+						scale_w, scale_h, drg, labels);			
+			} else {
+				detect_result.post_process(outputs,
+						widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
+						scale_w, scale_h, zps, scales, drg, labels);
+			}
 			System.out.println("Detected Result Group:"+drg);
 			image.saveDetections(drg);
 		}

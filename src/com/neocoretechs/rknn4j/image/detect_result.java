@@ -33,7 +33,7 @@ public class detect_result {
 	
 	// constants for SSD
 	public static final int NUM_RESULTS = 1917;
-	public static float MIN_SCORE     = .1f;//0.4f;
+	public static float MIN_SCORE     = .15f;//0.4f;
 	public static int NUM_CLASS = 91;
 	public static final float NMS_THRESH_SSD   = 0.5f;
 	

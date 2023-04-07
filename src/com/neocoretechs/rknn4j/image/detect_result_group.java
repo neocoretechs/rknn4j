@@ -1,10 +1,19 @@
 package com.neocoretechs.rknn4j.image;
-
+/**
+ * Class to provide grouping of detected results of semantic segmentation and object detection
+ * in a model agnostic manner.
+ * @author Jonathan N. Groff Copyright (C) NeoCoreTechs 2023
+ *
+ */
 public class detect_result_group {	
 	int id;
 	int count;
 	detect_result results[];
 	public detect_result_group() {	
+	}
+	
+	public detect_result[] getResults() {
+		return results;
 	}
 	
 	@Override

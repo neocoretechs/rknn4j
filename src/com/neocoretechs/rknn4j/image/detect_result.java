@@ -57,12 +57,34 @@ public class detect_result {
 		return String.format("Name=%s probability=%f xmin=%d,ymin=%d,xmax=%d,ymax=%d", name,probability,box.xmin,box.ymin,box.xmax,box.ymax);
 	}
 	
-	static class Rectangle {
+	public static class Rectangle {
 		int xmin;
 		int ymin;
 		int xmax;
 		int ymax;
 	}
+	
+	/**
+	 * @return the name
+	 */
+	public String getName() {
+		return name;
+	}
+
+	/**
+	 * @return the probability
+	 */
+	public float getProbability() {
+		return probability;
+	}
+
+	/**
+	 * @return the box
+	 */
+	public Rectangle getBox() {
+		return box;
+	}
+
 	/**
 	 * IoU - intersection over union calculation for Non-Maximal Suppression.
 	 * For area of intersecting part, 

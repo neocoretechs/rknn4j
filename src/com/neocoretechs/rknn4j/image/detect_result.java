@@ -58,10 +58,10 @@ public class detect_result {
 	}
 	
 	public static class Rectangle {
-		int xmin;
-		int ymin;
-		int xmax;
-		int ymax;
+		public int xmin;
+		public int ymin;
+		public int xmax;
+		public int ymax;
 	}
 	
 	/**

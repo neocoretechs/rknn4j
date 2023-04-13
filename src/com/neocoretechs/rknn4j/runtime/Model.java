@@ -284,7 +284,7 @@ public class Model {
 		rknn_input_output_num ioNum = m.queryIONumber(ctx);
 		System.out.printf("%s %s%n", sdk, ioNum);
 		BufferedImage bimage = Instance.readBufferedImage(args[1]);
-		if(args[3].equals("inception"))
+		if(args[2].equals("inception"))
 			INCEPTION = true;
 		Instance image = null;
 		rknn_tensor_attr[] inputAttrs = new rknn_tensor_attr[ioNum.getN_input()];
@@ -336,7 +336,7 @@ public class Model {
 		detect_result_group drg = new detect_result_group();
 		ArrayList<Float> scales = null;
 		ArrayList<Integer> zps = null;
-		if(WANTFLOAT) {
+		if(!WANTFLOAT) {
 			scales = new ArrayList<Float>();
 			zps = new ArrayList<Integer>();
 			for(int i = 0; i < ioNum.getN_output(); i++) {
@@ -354,7 +354,7 @@ public class Model {
 			} else {
 				detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
 					dimsImage[0], dimsImage[1], detect_result.NMS_THRESH_SSD, 
-					scale_w, scale_h, drg, labels);
+					scale_w, scale_h, zps, scales, drg, labels);
 			}
 			System.out.println("Detected Result Group:"+drg);
 			Instance.saveDetections(bimage, drg);

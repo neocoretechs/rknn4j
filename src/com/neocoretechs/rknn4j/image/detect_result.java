@@ -56,6 +56,41 @@ public class detect_result {
 	public String toString() {
 		return String.format("Name=%s probability=%f xmin=%d,ymin=%d,xmax=%d,ymax=%d", name,probability,box.xmin,box.ymin,box.xmax,box.ymax);
 	}
+	/**
+	 * {
+  	 * "count": 5,
+  	 * "detections": [
+     * {
+     * "name": "person",
+     * "probability": 0.30,
+     * "bbox": {"xmin": 200, "ymin": 200, "xmax": 300, "ymax": 300}
+     * },
+     * {
+     * "name": "dog",
+     * "probability": 0.40,
+     * "bbox": {"xmin": 120, "ymin": 180, "xmax": 240, "ymax": 360}
+     * }
+   	 * ]
+	 * }
+	 * @return
+	 */
+	public String toJson() {
+		StringBuilder sb = new StringBuilder("{\r\n");
+		sb.append("\"name\":\"");
+		sb.append(name);
+		sb.append("\",\r\n\"probability\":");
+		sb.append(probability);
+		sb.append(",\r\n\"bbox\":{\"xmin\":");
+		sb.append(box.xmin);
+		sb.append(",\"ymin\":");
+		sb.append(box.ymin);
+		sb.append(",\"xmax\":");
+		sb.append(box.xmax);
+		sb.append(",\"ymax\":");
+		sb.append(box.ymax);
+		sb.append("}\r\n}\r\n");
+		return sb.toString();
+	}
 	
 	public static class Rectangle {
 		public int xmin;

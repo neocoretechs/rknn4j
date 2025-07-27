@@ -368,7 +368,7 @@ public class Model {
 						widthHeightChannel[1], widthHeightChannel[0], detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 						scale_w, scale_h, zps, scales, drg, labels);
 			}
-			System.out.println("Detected Result Group:"+drg);
+			System.out.println("Detected Result Group:"+drg.toJson());
 			image.saveDetections(drg);
 		}
 		m.destroy(ctx);

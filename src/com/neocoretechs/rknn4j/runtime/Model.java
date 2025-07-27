@@ -256,7 +256,7 @@ public class Model {
 	}
 	
 	/**
-	 * Destroy context, pased context no longer valid. User must enforce.
+	 * Destroy context, passed context no longer valid. User must enforce.
 	 * @param ctx
 	 */
 	public void destroy(long ctx) {

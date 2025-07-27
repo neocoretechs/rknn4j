@@ -30,9 +30,14 @@
 
   <!-- Compiles the java code (including the usage of library for JUnit -->
   <target name="compile" depends="makedir">
-    <javac compiler="modern" srcdir="${src.dir}" destdir="${build.dir}" >
+    <!--<javac compiler="modern" srcdir="${src.dir}" destdir="${build.dir}" >
   		<classpath refid="master-classpath"/>
-    </javac>
+    </javac>-->
+  	<javac srcdir="${src.dir}" destdir="${build.dir}" source="25" target="25" includeantruntime="false" classpath="${lib.dir}/relatrix.jar:${lib.dir}/rocksack.jar:${lib.dir}/rknn4j.jar:${lib.dir}/commons-lang-2.6.jar:${lib.dir}/ws-commons-util-1.0.1.jar:${lib.dir}/commons-httpclient-3.1.jar:${lib.dir}/en_us.jar:${lib.dir}/commons-digester-1.8.1.jar:${lib.dir}/commons-logging-1.1.2.jar:${lib.dir}/commons-io-2.4.jar:${lib.dir}/RosBase.jar:${lib.dir}/xmlrpc-client-3.1.3.jar:${lib.dir}/commons-net-1.4.1.jar:${lib.dir}/RosMsgs.jar:${lib.dir}/Ros.jar:${lib.dir}/rocksdbjni-7.7.3-win64.jar:${lib.dir}/h264j.jar:${lib.dir}/cmu_time_awb.jar:${lib.dir}/cmu_us_kal.jar:${lib.dir}/cmudict04.jar:${lib.dir}/cmulex.jar:${lib.dir}/cmutimelex.jar:${lib.dir}/en_us.jar:${lib.dir}/freetts.jar:${lib.dir}/freetts-jsapi10.jar:${lib.dir}/jsapi.jar:${lib.dir}/mbrola.jar:${lib.dir}/VoxHumana.jar:${lib.dir}/commons-math3361.jar:${lib.dir}/v4l4j.jar:${lib.dir}/OpenKinect.jar:${lib.dir}/RXTXComm.jar:${lib.dir}/pi4j-core.jar:${lib.dir}/pi4j-device.jar:${lib.dir}/pi4j-gpio-extension.jar:${lib.dir}/pi4j-service.jar:${lib.dir}/jinput.jar:${lib.dir}/jinput20100502.jar:${lib.dir}/MachineVision.jar:${lib.dir}/JTransforms.jar">
+  	  <compilerarg value="--enable-preview"/>
+  	  <compilerarg value="--add-modules"/>
+  	  <compilerarg value="jdk.incubator.vector"/>
+  	</javac>
   </target>
 
 	<target name="copy" depends="jar">

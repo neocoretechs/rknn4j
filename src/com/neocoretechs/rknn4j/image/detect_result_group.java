@@ -17,7 +17,7 @@ public class detect_result_group {
 	}
 	/**
 	 * {
-  	 * "count": 5,
+  	 * "count": 2,
   	 * "detections": [
      * {
      * "name": "person",
@@ -37,11 +37,11 @@ public class detect_result_group {
 		StringBuilder sb = new StringBuilder("{\r\n\"count\":");
 		sb.append(count);
 		sb.append(",\r\n\"detections\":[\r\n");
-		if(results == null) 
-			sb.append("No results");
-		else
-			for(detect_result dr: results)
-				sb.append(dr.toJson());
+		if(results != null) 
+			for (int i = 0; i < results.length; i++) {
+			    if (i > 0) sb.append(",\r\n");
+			    sb.append(results[i].toJson());
+			}
 		sb.append("]\r\n}");
 		return sb.toString();
 	}

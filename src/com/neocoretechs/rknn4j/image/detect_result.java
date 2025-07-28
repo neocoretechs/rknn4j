@@ -58,7 +58,7 @@ public class detect_result {
 	}
 	/**
 	 * {
-  	 * "count": 5,
+  	 * "count": 2,
   	 * "detections": [
      * {
      * "name": "person",

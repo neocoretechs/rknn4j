@@ -34,6 +34,11 @@ public class Instance {
 	private byte[] imageByteArray;
 	private int[][] gray_image;
 
+    enum PadMode { RESIZE, BITBLT_CENTER, BITBLT_CORNER }
+    private PadMode mode = PadMode.BITBLT_CENTER;
+    private int canvasSize = 640;
+    private Color padColor = new Color(192,192,192); // Soft snow
+    
 	public Instance() {}
 	
 	/** Constructs the Instance from a BufferedImage. */
@@ -121,7 +126,6 @@ public class Instance {
 		this.width = fixWidth;
 		this.height = fixHeight;
 
-
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
 		Image i = image.getScaledInstance(fixWidth, fixHeight, Image.SCALE_AREA_AVERAGING);
 		Graphics2D g = this.image.createGraphics();
@@ -197,7 +201,6 @@ public class Instance {
 		return null;
 	}
 
-
 	public BufferedImage getImage() {
 		return image;
 	}
@@ -205,7 +208,6 @@ public class Instance {
 	public int getChannels() {
 		return channels;
 	}
-	
 	
 	/** Gets the gray scale image. */
 	public int[][] getGrayImage() {
@@ -490,7 +492,38 @@ public class Instance {
 		return image.toString()+" "+label;
 	}
 	
+    public BufferedImage process(BufferedImage input, PadMode selectedMode) {
+        this.mode = selectedMode;
+        switch (mode) {
+            case RESIZE: return resizeImage(input);
+            case BITBLT_CENTER: return bitbltImage(input, true);
+            case BITBLT_CORNER: return bitbltImage(input, false);
+            default: throw new IllegalArgumentException("Invalid mode");
+        }
+    }
+
+    private BufferedImage resizeImage(BufferedImage input) {
+        BufferedImage resized = new BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = resized.createGraphics();
+        g.drawImage(input, 0, 0, canvasSize, canvasSize, null);
+        g.dispose();
+        return resized;
+    }
+
+    private BufferedImage bitbltImage(BufferedImage input, boolean center) {
+        BufferedImage padded = new BufferedImage(canvasSize, canvasSize, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = padded.createGraphics();
+        g.setColor(padColor);
+        g.fillRect(0, 0, canvasSize, canvasSize);
+        int x = center ? (canvasSize - input.getWidth()) / 2 : 0;
+        int y = center ? (canvasSize - input.getHeight()) / 2 : 0;
+        g.drawImage(input, x, y, null);
+        g.dispose();
+        return padded;
+    }
+
 	public native byte[] getRGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
 	public native byte[] getRGARGB(byte[] imageBytes, int img_height, int img_width, int channel, int height, int width);
 	//public native byte[] getCapture(int cam);
+
 }

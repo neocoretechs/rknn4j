@@ -507,6 +507,27 @@ public class detect_result {
 		return groupArray.size();
 	}
 	/**
+	 * Compute DFL (Distributed Focal Loss) for YOLOv11. YOLOv11 uses DFL to predict bounding box offsets more precisely. 
+	 * The compute_dfl() function aggregates softmax-weighted bin values to produce final box coordinates.
+	 * Box Reconstruction:Final box coordinates are computed relative to the grid cell: x1 = (-box[0] + j + 0.5) * stride
+	 * This aligns with YOLO’s anchor-free design.
+	 * @param tensor
+	 * @param dfl_len
+	 * @param box
+	 */
+	void compute_dfl(float[] tensor, int dfl_len, float[] box) {
+	    for (int b = 0; b < 4; b++) {
+	        float exp_sum = 0.0f;
+	        float acc_sum = 0.0f;
+	        for (int i = 0; i < dfl_len; i++) {
+	            float exp_val = (float)Math.exp(tensor[i + b * dfl_len]);
+	            exp_sum += exp_val;
+	            acc_sum += exp_val * i;
+	        }
+	        box[b] = acc_sum / exp_sum;
+	    }
+	}
+	/**
 	 * INT8 AFFINE <p/>
 	 * Perform post processing on one of the output layers which was generated in INT8 default AFFINE format
 	 * @param input Input byte buffer from NPU run
@@ -591,7 +612,85 @@ public class detect_result {
 		}
 		return validCount;
 	}
-	
+	/** 
+	 * YOLOv11 int8 AFFINE processing
+	 *
+	 * @param box_tensor:
+	 * @param box_zp
+	 * @param box_scale
+	 * @param score_tensor:
+	 * @param score_zp
+	 * @param score_scale:
+	 * @param score_sum_tensor 
+	 * @param score_sum_zp, score_sum_scale: 
+	 * @param grid_h, 
+	 * @param grid_w:
+	 * @param stride:
+	 * @param dfl_len:（Distributed Focal Loss）
+	 * @param boxes, 
+	 * @param objProbs,
+	 * @param classId: 
+	 * @param threshold: 
+	 */
+	int process_i8(byte[] box_tensor, int box_zp, float box_scale,
+	    byte[] score_tensor, int score_zp, float score_scale,
+	    byte[] score_sum_tensor, int score_sum_zp, float score_sum_scale,
+	    int grid_h, int grid_w, int stride, int dfl_len,
+	    ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold) {
+	    int validCount = 0;
+	    int grid_len = grid_h * grid_w;
+	    byte score_thres_i8 = qnt_f32_to_affine(threshold, score_zp, score_scale);
+	    byte score_sum_thres_i8 = qnt_f32_to_affine(threshold, score_sum_zp, score_sum_scale);
+	    //scale
+	    float box_scale_inv = 1.0f / box_scale;
+	    float score_scale_inv = 1.0f / score_scale;
+	    for (int i = 0; i < grid_h; i++) {
+	    	for (int j = 0; j < grid_w; j++) {
+	           int offset = i * grid_w + j;
+	            int max_class_id = -1;
+	            // score_sum_tensor
+	            if ((score_sum_tensor != null) && (score_sum_tensor[offset] < score_sum_thres_i8)) {
+	                continue; 
+	            }
+	            byte max_score = (byte) -score_zp;
+	            for (int c = 0; c < OBJ_CLASS_NUM; c++) {
+	                if (((score_tensor[offset] & 0xFF) > (score_thres_i8 & 0xFF)) && 
+	                	((score_tensor[offset] & 0xFF) > (max_score & 0xFF))) {
+	                    max_score = score_tensor[offset];
+	                    max_class_id = c;
+	                }
+	                offset += grid_len;
+	            }
+	            if (max_score > score_thres_i8) {
+	                offset = i * grid_w + j;
+	                // （Distributed Focal Loss）
+	                float[] box = new float[4];
+	                float[] before_dfl = new float[dfl_len * 4];
+	                //DFL 
+	                for (int k = 0; k < dfl_len * 4; k++) {
+	                    before_dfl[k] = deqnt_affine_to_f32(box_tensor[offset], box_zp, box_scale);
+	                    offset += grid_len;
+	                }
+	                compute_dfl(before_dfl, dfl_len, box); 
+	                float x1, y1, x2, y2, w, h;
+	                x1 = (float)(-box[0] + j + 0.5) * stride;
+	                y1 = (float)(-box[1] + i + 0.5) * stride;
+	                x2 = (float)(box[2] + j + 0.5) * stride;
+	                y2 = (float)(box[3] + i + 0.5) * stride;
+	                w = x2 - x1;
+	                h = y2 - y1;
+	                boxes.add(x1);
+	                boxes.add(y1);
+	                boxes.add(w);
+	                boxes.add(h);
+	                objProbs.add(deqnt_affine_to_f32(max_score, score_zp, score_scale));
+	                classId.add(max_class_id);
+	                validCount++;
+	            }
+	        }
+	    }
+	    return validCount;
+	}
 	/**
 	 * FLOAT <p/>
 	 * Perform post processing on one of the output layers which was generated in FLOAT format (YOLO)

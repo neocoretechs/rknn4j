@@ -22,7 +22,7 @@ public class rknn_tensor_attr {
 	   byte fl;                                       /* fractional length for RKNN_TENSOR_QNT_DFP. */
 	   int zp;                                        /* zero point for RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC. */
 	   float scale;                                   /* scale for RKNN_TENSOR_QNT_AFFINE_ASYMMETRIC. */
-	   int w_stride;                                  /* the stride of tensor along the width dimention of input, Note: it is read-only, 0 means equal to width. */
+	   int w_stride;                                  /* the stride of tensor along the width dimension of input, Note: it is read-only, 0 means equal to width. */
 	   int size_with_stride;                          /* the bytes size of tensor with stride. */
 	   byte pass_through;                             /* pass through mode, for rknn_set_io_mem interface. if TRUE, the buf data is passed directly to the input node of the rknn model
                  										without any conversion. the following variables do not need to be set.
@@ -227,4 +227,34 @@ public class rknn_tensor_attr {
 	public void setH_stride(int h_stride) {
 		this.h_stride = h_stride;
 	}
+	
+	/**
+	 * n_dims will be 4 for one input with a 4 element array, and 5 for multiple outputs with 4 element arrays
+	 * the arrays are 1,h,w,channels  or 1,channel,h,w depending on format NCHW or NHWC
+	 * @param inputAttr
+	 * @return the array of width/height/channel
+	 */
+	public int[] getWidthHeightChannel() {
+		int[] whc = new int[3]; 
+		switch(getFmt()) {
+			case RKNN_TENSOR_NCHW:
+				whc[0] = getDim(3);
+				whc[1] = getDim(2);
+				whc[2] = getDim(1);
+				return whc;
+			case RKNN_TENSOR_FORMAT_MAX:
+			case RKNN_TENSOR_NC1HWC2:
+				break;
+			case RKNN_TENSOR_NHWC:
+				whc[0] = getDim(2);
+				whc[1] = getDim(1);
+				whc[2] = getDim(3);
+				return whc;
+			case RKNN_TENSOR_UNDEFINED:
+			default:
+				break;
+		}
+		throw new RuntimeException("Unsupported model format");
+	}
+	
 }

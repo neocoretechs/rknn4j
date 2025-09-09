@@ -2,11 +2,13 @@ package com.neocoretechs.rknn4j.image;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import com.neocoretechs.rknn4j.rknn_input_output_num;
 import com.neocoretechs.rknn4j.rknn_output;
+import com.neocoretechs.rknn4j.rknn_tensor_attr;
 
 /**
  * Postprocessing for the RockChip RK3588 NPU output models.<p/>
@@ -20,8 +22,8 @@ import com.neocoretechs.rknn4j.rknn_output;
  *
  */
 public class detect_result {
-	private static boolean DEBUG = false;
-	private static boolean DEBUG_VERBOSE = false;
+	private static boolean DEBUG = true;
+	private static boolean DEBUG_VERBOSE = true;
 	String name;
 	float probability;
 	Rectangle box; //upper left x and y, width, height
@@ -135,14 +137,14 @@ public class detect_result {
 	 * by:<br/>u = width0+1 * height0+1 + width1+1 * height1+1 - i <p/>
 	 * We then return 0 if the Total Area calc u is <= 0, otherwise, return ratio of area of intersection over total area i/u.
 	 * intersection of areas over union of areas. Remove boxes with IoU over threshold.
-	 * @param xmin0
-	 * @param ymin0
-	 * @param xmax0
-	 * @param ymax0
-	 * @param xmin1
-	 * @param ymin1
-	 * @param xmax1
-	 * @param ymax1
+	 * @param xmin0 xmin region 1
+	 * @param ymin0 ymin region 1
+	 * @param xmax0 xmax region 1
+	 * @param ymax0 xmax region 1
+	 * @param xmin1 xmin region 2
+	 * @param ymin1 ymin region 2
+	 * @param xmax1 xmax region 2
+	 * @param ymax1 xmax region 2
 	 * @return
 	 */
 	static float calculateOverlapYOLO(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
@@ -152,7 +154,18 @@ public class detect_result {
 		float u = (xmax0 - xmin0 + 1.0f) * (ymax0 - ymin0 + 1.0f) + (xmax1 - xmin1 + 1.0f) * (ymax1 - ymin1 + 1.0f) - i;
 		return (u <= 0.f ? 0.f : (i / u));
 	}
-	
+	/**
+	 * Calculate the overlap for SSD
+	 * @param xmin0 xmin region 1
+	 * @param ymin0 ymin region 1
+	 * @param xmax0 xmax region 1
+	 * @param ymax0 xmax region 1
+	 * @param xmin1 xmin region 2
+	 * @param ymin1 ymin region 2
+	 * @param xmax1 xmax region 2
+	 * @param ymax1 xmax region 2
+	 * @return the IOU ratio
+	 */
 	static float calculateOverlapSSD(float xmin0, float ymin0, float xmax0, float ymax0, float xmin1, float ymin1, float xmax1, float ymax1) {
 		float w = Math.max(0.0f, Math.min(xmax0, xmax1) - Math.max(xmin0, xmin1));
 		float h = Math.max(0.0f, Math.min(ymax0, ymax1) - Math.max(ymin0, ymin1));
@@ -185,7 +198,7 @@ public class detect_result {
 	  }
 	}
 	/**
-	 * 
+	 * FIlter results based on MIN_SCORE and NUM_RESULTS
 	 * @param outputClasses
 	 * @param output
 	 * @param numClasses
@@ -428,7 +441,7 @@ public class detect_result {
 		return floatArray;
 	}
 	/**
-	 * FLOAT <p/>
+	 * FLOAT InceptionSSD<p/>
 	 * Perform post processing on the InceptionSSD output layers which was generated in want_float floating point format vs INT8
 	 * @param input0 Input byte buffer from NPU run convert to predictions
 	 */
@@ -515,7 +528,7 @@ public class detect_result {
 	 * @param dfl_len
 	 * @param box
 	 */
-	void compute_dfl(float[] tensor, int dfl_len, float[] box) {
+	public static void compute_dfl(float[] tensor, int dfl_len, float[] box) {
 	    for (int b = 0; b < 4; b++) {
 	        float exp_sum = 0.0f;
 	        float acc_sum = 0.0f;
@@ -528,7 +541,7 @@ public class detect_result {
 	    }
 	}
 	/**
-	 * INT8 AFFINE <p/>
+	 * INT8 AFFINE YOLOv5<p/>
 	 * Perform post processing on one of the output layers which was generated in INT8 default AFFINE format
 	 * @param input Input byte buffer from NPU run
 	 * @param anchor float array of anchor boxes
@@ -614,8 +627,10 @@ public class detect_result {
 	}
 	/** 
 	 * YOLOv11 int8 AFFINE processing
-	 *
-	 * @param box_tensor:
+	 * @param input Input buffer from NPU run
+	 * @param grid_h grid height
+	 * @param grid_w grid width
+	 * @param stride:
 	 * @param box_zp
 	 * @param box_scale
 	 * @param score_tensor:
@@ -623,27 +638,24 @@ public class detect_result {
 	 * @param score_scale:
 	 * @param score_sum_tensor 
 	 * @param score_sum_zp, score_sum_scale: 
-	 * @param grid_h, 
-	 * @param grid_w:
-	 * @param stride:
 	 * @param dfl_len:（Distributed Focal Loss）
-	 * @param boxes, 
-	 * @param objProbs,
-	 * @param classId: 
-	 * @param threshold: 
+	 * @param boxes float collection of boxes populated by method x,y,width,height
+	 * @param objProbs float collection of object probabilities populated by method
+	 * @param classId int collection of class Id indexes populated by method
+	 * @param threshold Box threshold constant to pass to unsigmoid function to determine confidence in box overlap
 	 */
-	int process_i8(byte[] box_tensor, int box_zp, float box_scale,
-	    byte[] score_tensor, int score_zp, float score_scale,
-	    byte[] score_sum_tensor, int score_sum_zp, float score_sum_scale,
-	    int grid_h, int grid_w, int stride, int dfl_len,
-	    ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold) {
+	private static int process(byte[] input, int grid_h, int grid_w, int stride, int dfl_len, int box_zp, float box_scale, 
+		byte[] score_tensor, int score_zp, float score_scale, byte[] score_sum_tensor,
+		int score_sum_zp, float score_sum_scale, 
+		ArrayList<Float> boxes, ArrayList<Float> objProbs, ArrayList<Integer> classId, float threshold) {
+	
 	    int validCount = 0;
 	    int grid_len = grid_h * grid_w;
 	    byte score_thres_i8 = qnt_f32_to_affine(threshold, score_zp, score_scale);
 	    byte score_sum_thres_i8 = qnt_f32_to_affine(threshold, score_sum_zp, score_sum_scale);
 	    //scale
-	    float box_scale_inv = 1.0f / box_scale;
-	    float score_scale_inv = 1.0f / score_scale;
+	    //float box_scale_inv = 1.0f / box_scale;
+	    //float score_scale_inv = 1.0f / score_scale;
 	    for (int i = 0; i < grid_h; i++) {
 	    	for (int j = 0; j < grid_w; j++) {
 	           int offset = i * grid_w + j;
@@ -668,7 +680,7 @@ public class detect_result {
 	                float[] before_dfl = new float[dfl_len * 4];
 	                //DFL 
 	                for (int k = 0; k < dfl_len * 4; k++) {
-	                    before_dfl[k] = deqnt_affine_to_f32(box_tensor[offset], box_zp, box_scale);
+	                    before_dfl[k] = deqnt_affine_to_f32(input[offset], box_zp, box_scale);
 	                    offset += grid_len;
 	                }
 	                compute_dfl(before_dfl, dfl_len, box); 
@@ -692,8 +704,105 @@ public class detect_result {
 	    return validCount;
 	}
 	/**
-	 * FLOAT <p/>
-	 * Perform post processing on one of the output layers which was generated in FLOAT format (YOLO)
+	 * YOLOv11 post processing pipeline.
+	 * @param bufs input buffers from NPU
+	 * @param output_attrs output attributes queried from NPU
+	 * @param ioNum {@link rknn_input_output_num} from NPU query
+	 * @param model_in_h input height
+	 * @param model_in_w input width
+	 * @param conf_threshold
+	 * @param nms_threshold
+	 * @param group
+	 * @param labels
+	 * @return
+	 */
+	public static int post_process(rknn_output[] bufs, ArrayList<rknn_tensor_attr> output_attrs, rknn_input_output_num ioNum, 
+			float scale_w, float scale_h, int model_in_h, int model_in_w, float conf_threshold,
+            float nms_threshold, detect_result_group group, String[] labels) {
+
+		ArrayList<Float> filterBoxes = new ArrayList<Float>();
+		ArrayList<Float> objProbs = new ArrayList<Float>();
+		ArrayList<Integer> classId = new ArrayList<Integer>();
+		
+	    int validCount = 0; 
+	    int stride = 0; 
+	    int grid_h = 0; 
+	    int grid_w = 0; 
+
+	    int dfl_len = output_attrs.get(0).getDims()[1] / 4;
+	    int output_per_branch = ioNum.getN_output() / 3; 
+	
+	    for (int i = 0; i < 3; i++) {
+	        int score_sum_zp = 0;
+	        float score_sum_scale = 1.0f;
+	        // score_sum
+	        byte[] score_sum = null;
+			if (output_per_branch == 3) {
+	        	score_sum  = bufs[i * output_per_branch + 2].getBuf();
+	            score_sum_zp = output_attrs.get(i * output_per_branch + 2).getZp();
+	            score_sum_scale = output_attrs.get(i * output_per_branch + 2).getScale();
+	        }
+	        int box_idx = i * output_per_branch;
+	        int score_idx = i * output_per_branch + 1;
+	        grid_h = output_attrs.get(box_idx).getWidthHeightChannel()[1];
+	        grid_w = output_attrs.get(box_idx).getWidthHeightChannel()[0];
+	        stride = model_in_h / grid_h;
+   
+	        validCount += process(bufs[box_idx].getBuf(), grid_h, grid_w, stride, dfl_len, output_attrs.get(box_idx).getZp(),
+	        		output_attrs.get(box_idx).getScale(), bufs[score_idx].getBuf(), output_attrs.get(score_idx).getZp(),
+	        		output_attrs.get(score_idx).getScale(), score_sum, score_sum_zp, score_sum_scale,
+	        		filterBoxes, objProbs, classId, conf_threshold);
+	    }
+	    // NMS
+		// no object detected
+		if (validCount <= 0) {
+			return 0;
+		}
+		int[] indexArray = new int[validCount];
+		for (int i = 0; i < validCount; i++) {
+			indexArray[i] = i;
+		}
+		float[] objProbsArray =  new float[validCount];
+		int i = 0;
+		for(int j = 0; j < objProbs.size(); j++) {
+			objProbsArray[i++] = objProbs.get(j).floatValue();
+		}
+		if(DEBUG) {
+			System.out.println("UnSorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("UnSorted IndexArray:"+Arrays.toString(indexArray));
+			System.out.println("Quicksort..");
+		}
+		quick_sort_indice_inverse(objProbsArray, 0, validCount - 1, indexArray);
+		if(DEBUG) {
+			System.out.println("Quicksort done");	
+			System.out.println("Sorted ObjProbsArray:"+Arrays.toString(objProbsArray));
+			System.out.println("Sorted IndexArray:"+Arrays.toString(indexArray));
+		}	
+		float[] filterBoxesArray = new float[validCount*4];
+		if(DEBUG)
+			System.out.println("Filterboxes sizes ="+filterBoxes.size());
+		i = 0;
+		for(int j = 0; j < filterBoxes.size(); j++) {
+			filterBoxesArray[i++] = filterBoxes.get(j);
+		}	
+		int[] classIdArray = new int[validCount];
+		if(DEBUG)
+			System.out.println("ClassId sizes ="+classId.size());
+		i = 0;
+		for(int j = 0; j < classId.size(); j++) {
+			classIdArray[i++] = classId.get(j);
+		}	
+		if(DEBUG) {
+			System.out.println("raw ClassIdArray:"+Arrays.toString(classIdArray));
+			System.out.println("raw filterBoxesArray:"+Arrays.toString(filterBoxesArray));
+		}	
+		return process_arraysYOLO(classIdArray, indexArray, filterBoxesArray, objProbsArray, labels, 
+				group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
+	}
+	
+	/**
+	 * FLOAT YOLOv5 <p/>
+	 * Perform post processing on one of the output layers which was generated in FLOAT format (YOLOv5)
 	 * @param input Input float buffer from NPU run
 	 * @param anchor float array of anchor boxes
 	 * @param grid_h grid height
@@ -772,7 +881,7 @@ public class detect_result {
 	static int clamp(float val, int min, int max) { return (int) (val > min ? (val < max ? val : max) : min); }
 	
 	/**
-	 * Process the YOLO arrays assembled from post processing output layers after extracting buffer data and
+	 * Process the YOLOv5 arrays assembled from post processing output layers after extracting buffer data and
 	 * assembling regions and probabilities. Perform the non-maximal suppression and populate detect_result_group group object.
 	 * @param classIdArray
 	 * @param indexArray
@@ -849,7 +958,7 @@ public class detect_result {
 		return groupArray.size();
 	}
 	/**
-	 * INT8 AFFINE<p/>
+	 * INT8 AFFINE YOLOv5<p/>
 	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if int8 output.
 	 * @param bufs rknn_output[] output layers from NPU
@@ -979,7 +1088,7 @@ public class detect_result {
 
 	}
 	/**
-	 * FLOAT<p/>
+	 * FLOAT YOLOv5<p/>
 	 * Perform post processing on YOLOv5 type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of YOLOv5, in a 3 layer structure if int8 output.
 	 * @param bufs rknn_output[] output layers from NPU
@@ -1111,7 +1220,7 @@ public class detect_result {
 
 	}
 	/**
-	 * Data that conforms to the parameters of a 2 layer structure of quantized INT8 output.<p/>
+	 * InceptionSSD Data that conforms to the parameters of a 2 layer structure of quantized INT8 output.<p/>
 	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
 	 * @param input0 Layer 0 output from NPU, Contains 'predictions'
 	 * @param input1 Layer 1 output from NPU Contains 'output_classes'
@@ -1192,7 +1301,7 @@ public class detect_result {
 
 	}
 	/**
-	 * FLOAT<p/>
+	 * FLOAT InceptionSSD<p/>
 	 * Perform post processing on InceptSSD type result sets from neural processing unit.<p/>
 	 * Data that conforms to the parameters of InceptSSD, in a 2 layer structure of FLOAT output.<p/>
 	 * When want_float flag is set to true on output layers, buffer will reflect floating point data
@@ -1269,5 +1378,5 @@ public class detect_result {
 		return process_arraysSSD(output, predictionsArray, props, labels, group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
 
 	}
-
+	
 }

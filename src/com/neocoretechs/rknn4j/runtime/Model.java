@@ -48,7 +48,6 @@ public class Model {
 	int[] widthHeightChannel; // parameters from loaded model
  	float scale_w;//(float)widthHeightChannel[0] / (float)dimsImage[0];
   	float scale_h;//(float)widthHeightChannel[1] / (float)dimsImage[1];
-	Model model = new Model();
 	rknn_input_output_num ioNum;
 	rknn_tensor_attr[] inputAttrs;
 	ArrayList<rknn_tensor_attr> tensorAttrs = new ArrayList<rknn_tensor_attr>();
@@ -302,7 +301,7 @@ public class Model {
 		//	image = new Instance(args[1], bimage, args[1]);
 		//}
 		for(int i = 0; i < ioNum.getN_output(); i++) {
-			rknn_tensor_attr outputAttr = model.queryOutputAttrs(ctx, i);
+			rknn_tensor_attr outputAttr = queryOutputAttrs(ctx, i);
 			if(DEBUG) {
 				System.out.println("Tensor output layer "+i+" attributes:");
 				System.out.println(RKNN.dump_tensor_attr(outputAttr));

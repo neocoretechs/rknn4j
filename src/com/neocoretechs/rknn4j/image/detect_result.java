@@ -710,11 +710,11 @@ public class detect_result {
 	 * @param ioNum {@link rknn_input_output_num} from NPU query
 	 * @param model_in_h input height
 	 * @param model_in_w input width
-	 * @param conf_threshold
-	 * @param nms_threshold
-	 * @param group
-	 * @param labels
-	 * @return
+	 * @param conf_threshold confidence threshold
+	 * @param nms_threshold non maximal suppression threshold
+	 * @param group group to populate with {@link detect_result}
+	 * @param labels object category labels
+	 * @return number of detected objects
 	 */
 	public static int post_process(rknn_output[] bufs, ArrayList<rknn_tensor_attr> output_attrs, rknn_input_output_num ioNum, 
 			float scale_w, float scale_h, int model_in_h, int model_in_w, float conf_threshold,

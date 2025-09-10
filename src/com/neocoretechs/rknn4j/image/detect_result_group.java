@@ -15,6 +15,9 @@ public class detect_result_group {
 	public detect_result[] getResults() {
 		return results;
 	}
+	public int getCount() {
+		return count;
+	}
 	/**
 	 * {
   	 * "count": 2,

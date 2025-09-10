@@ -359,24 +359,25 @@ public class Model {
 					scales.add(outputAttr.getScale());
 				}
 			}
+			int num_detected = 0;
 			switch(MODEL) {
 				case 0: //YOLOv5
-					detect_result.post_process(outputs, widthHeightChannel[1], widthHeightChannel[0], 
+					num_detected = detect_result.post_process(outputs, widthHeightChannel[1], widthHeightChannel[0], 
 						detect_result.BOX_THRESH, detect_result.NMS_THRESH, 
 						scale_w, scale_h, zps, scales, drg, labels);
 				break;
 				case 1:// YOLOv11
-					detect_result.post_process(outputs, tensorAttrs, ioNum, scale_w, scale_h, widthHeightChannel[1], widthHeightChannel[0], 
+					num_detected = detect_result.post_process(outputs, tensorAttrs, ioNum, scale_w, scale_h, widthHeightChannel[1], widthHeightChannel[0], 
 							detect_result.BOX_THRESH, detect_result.NMS_THRESH, drg, labels);
 					//image.drawDetections(drg);
 				break;
 				case 2:  // InceptionSSD 
 					if(WANTFLOAT) {
-						detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+						num_detected = detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
 							widthHeightChannel[1], widthHeightChannel[0], detect_result.NMS_THRESH_SSD, 
 							scale_w, scale_h, drg, labels);
 					} else {
-						detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
+						num_detected = detect_result.post_process(outputs[0].getBuf(), outputs[1].getBuf(), boxPriors,
 							widthHeightChannel[1], widthHeightChannel[0], detect_result.NMS_THRESH_SSD, 
 							scale_w, scale_h, zps, scales, drg, labels);	
 					}
@@ -387,7 +388,10 @@ public class Model {
 					System.exit(1);
 			}
 			if(DEBUG)
-				System.out.println("Detected Result Group:"+drg);
+				if(num_detected == 0)
+					System.out.println("Nothing detected");
+				else
+					System.out.println("Detected Result Group:"+drg);
 			return drg;
 			//m.destroy(ctx);
 	}

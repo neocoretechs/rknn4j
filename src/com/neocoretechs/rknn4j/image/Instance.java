@@ -373,7 +373,7 @@ public class Instance {
 	 * Draw the detection boxes and probabilities and save to file detections.jpg
 	 * @param detections
 	 */
-	public void saveDetections(detect_result_group detections) {
+	public void saveDetections(detect_result_group detections, String fileName) {
 		if(detections == null || detections.results == null)
 			return;
 		Graphics graphics = image.getGraphics();
@@ -385,7 +385,7 @@ public class Instance {
 			graphics.drawString(dr.name+" "+((int)(dr.probability*100))+"%", dr.box.xmin, dr.box.ymin);
 		}
 		try {
-			ImageIO.write(image, "jpg", new File("detections.jpg"));
+			ImageIO.write(image, "jpg", new File(fileName+".jpg"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

@@ -499,7 +499,7 @@ public class Model {
 						scale_w, scale_h, zps, scales, drg, labels);
 			}
 			System.out.println("Detected Result Group:"+drg.toJson());
-			image.saveDetections(drg);
+			image.saveDetections(drg,"detections");
 		}
 		m.destroy(ctx);
 	}

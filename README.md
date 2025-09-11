@@ -1,3 +1,10 @@
+<h2>RKNN4j Java Bindings for RockChip NPU Object Segmentation</h2>
+Currently supports the following models:
+* InceptionSSD_v2
+* YOLOv5s
+* YOLOv11s
+JDK support level is at 25. Tested on Rock5B and Odroid M2 with RK3588.
+
 <h4>RockChip Neural Processing Unit for Java</h4><p/>
 Java bindings to the RockChip RK3588 Neural Processing Unit.<br/>
 The RK3588 is a 6 TOPS NPU integrated into the RK3588 SoC and available on a number of SBC's (Single Board Computers).

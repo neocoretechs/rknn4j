@@ -17,8 +17,9 @@ import com.neocoretechs.rknn4j.rknn_tensor_attr;
  * In the YOLOV5 model each object class is represented by (X,Y,W,H,Confidence) relative to the grid cell.
  * The X,Y position represents the upper left corner.
  * This is why you see the 5+Object_class references. A set of anchor boxes for each layer represents the
- * position that relative reference to cells use.
- * @author Jonathan Groff Copyright (C) NeoCoreTechs 2023
+ * position that relative reference to cells use.<p>
+ * YOLOv11 does away with anchor boxes and reduces output to a single tensor.
+ * @author Jonathan Groff Copyright (C) NeoCoreTechs 2023.2025
  *
  */
 public class detect_result {
@@ -685,10 +686,10 @@ public class detect_result {
 	                }
 	                compute_dfl(before_dfl, dfl_len, box); 
 	                float x1, y1, x2, y2, w, h;
-	                x1 = (float)(-box[0] + j + 0.5) * stride;
-	                y1 = (float)(-box[1] + i + 0.5) * stride;
-	                x2 = (float)(box[2] + j + 0.5) * stride;
-	                y2 = (float)(box[3] + i + 0.5) * stride;
+	                x1 = (-box[0] + (float)j + 0.5f) * (float)stride;
+	                y1 = (-box[1] + (float)i + 0.5f) * (float)stride;
+	                x2 = (box[2] + (float)j + 0.5f) * (float)stride;
+	                y2 = (box[3] + (float)i + 0.5f) * (float)stride;
 	                w = x2 - x1;
 	                h = y2 - y1;
 	                boxes.add(x1);

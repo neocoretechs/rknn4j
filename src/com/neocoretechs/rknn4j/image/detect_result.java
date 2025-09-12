@@ -100,6 +100,10 @@ public class detect_result {
 		public int ymin;
 		public int xmax;
 		public int ymax;
+		@Override
+		public String toString() {
+			return String.format("xmin=%d, ymin=%d, xmax=%d, ymax=%d", xmin,ymin,xmax,ymax);
+		}
 	}
 	
 	/**

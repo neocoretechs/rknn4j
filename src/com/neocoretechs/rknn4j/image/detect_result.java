@@ -23,8 +23,8 @@ import com.neocoretechs.rknn4j.rknn_tensor_attr;
  *
  */
 public class detect_result {
-	private static boolean DEBUG = true;
-	private static boolean DEBUG_VERBOSE = true;
+	private static boolean DEBUG = false;
+	private static boolean DEBUG_VERBOSE = false;
 	String name;
 	float probability;
 	Rectangle box; //upper left x and y, width, height

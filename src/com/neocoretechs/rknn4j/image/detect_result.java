@@ -5,6 +5,7 @@ import java.nio.ByteOrder;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 
 import com.neocoretechs.rknn4j.rknn_input_output_num;
 import com.neocoretechs.rknn4j.rknn_output;
@@ -103,6 +104,21 @@ public class detect_result {
 		@Override
 		public String toString() {
 			return String.format("xmin=%d, ymin=%d, xmax=%d, ymax=%d", xmin,ymin,xmax,ymax);
+		}
+		@Override
+		public int hashCode() {
+			return Objects.hash(xmax, xmin, ymax, ymin);
+		}
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (!(obj instanceof Rectangle)) {
+				return false;
+			}
+			Rectangle other = (Rectangle) obj;
+			return xmax == other.xmax && xmin == other.xmin && ymax == other.ymax && ymin == other.ymin;
 		}
 	}
 	
@@ -1382,6 +1398,23 @@ public class detect_result {
 			
 		return process_arraysSSD(output, predictionsArray, props, labels, group, nms_threshold, validCount, model_in_w, model_in_h, scale_w, scale_h);
 
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(box, name);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (!(obj instanceof detect_result)) {
+			return false;
+		}
+		detect_result other = (detect_result) obj;
+		return Objects.equals(box, other.box) && Objects.equals(name, other.name);
 	}
 	
 }

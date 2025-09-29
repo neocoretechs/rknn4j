@@ -1,4 +1,8 @@
 package com.neocoretechs.rknn4j.image;
+
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Class to provide grouping of detected results of semantic segmentation and object detection
  * in a model agnostic manner.
@@ -42,7 +46,8 @@ public class detect_result_group {
 		sb.append(",\r\n\"detections\":[\r\n");
 		if(results != null) 
 			for (int i = 0; i < results.length; i++) {
-			    if (i > 0) sb.append(",\r\n");
+			    if(i > 0 && i < results.length-1)
+			    	sb.append(",\r\n");
 			    sb.append(results[i].toJson());
 			}
 		sb.append("]\r\n}");
@@ -64,5 +69,26 @@ public class detect_result_group {
 			}
 		}
 		return sb.toString();
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + Arrays.hashCode(results);
+		result = prime * result + Objects.hash(count);
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (!(obj instanceof detect_result_group)) {
+			return false;
+		}
+		detect_result_group other = (detect_result_group) obj;
+		return count == other.count && Arrays.equals(results, other.results);
 	}
 }

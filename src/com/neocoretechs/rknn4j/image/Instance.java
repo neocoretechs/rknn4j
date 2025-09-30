@@ -32,7 +32,10 @@ public class Instance {
 	private int width, height, channels;
 	
 	private byte[] imageByteArray;
+	private byte[] previousImageByteArray;
 	private int[][] gray_image;
+	private float THRESHOLD = 0.03f;
+	private boolean triggerSegmentation = true;
 
     enum PadMode { RESIZE, BITBLT_CENTER, BITBLT_CORNER }
     private PadMode mode = PadMode.BITBLT_CENTER;
@@ -77,7 +80,8 @@ public class Instance {
 	}
 	
 	/**
-	 * Constructs the Instance from a byte array.
+	 * Constructs the Instance from a byte array. The boolean triggerSegmentation will be false if current image
+	 * is within THRESHOLD of last image.
 	 * @param name Image file name
 	 * @param width image width
 	 * @param height image height
@@ -98,8 +102,22 @@ public class Instance {
 			this.imageByteArray = getRGARGB(rawImage, width, height, channels, fixWidth, fixHeight);
 		else
 			this.imageByteArray = getRGB(rawImage, width, height, channels, fixWidth, fixHeight);
+		
 		if(this.imageByteArray == null)
 			throw new RuntimeException("Image resize error");
+		// determine if current frame has produced enough change to trigger new segmentation based on previous frame
+		float changeRatio = THRESHOLD;
+		if(previousImageByteArray == null) {
+			previousImageByteArray = imageByteArray;
+		} else {
+			int changed = 0;
+			for(int i = 0; i < imageByteArray.length; i++) {
+				if ((imageByteArray[i] ^ previousImageByteArray[i]) != 0) changed++;
+			}
+			changeRatio = (float) changed / imageByteArray.length;
+		}
+		triggerSegmentation = (changeRatio > THRESHOLD);
+
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
 	    final ByteBuffer bb = ByteBuffer.wrap(this.imageByteArray);//.order(ByteOrder.LITTLE_ENDIAN);
 	    final int[] ret = new int[this.imageByteArray.length / 3];
@@ -148,6 +166,13 @@ public class Instance {
 			}
 		}
 		this.imageByteArray = bb.array();
+	}
+	/**
+	 * Return the result of comparison for image change over THRESHOLD
+	 * @return
+	 */
+	public boolean shouldSegment() {
+		return triggerSegmentation;
 	}
 	/**
 	 * RGB 888 left to right, top to bottom

@@ -24,7 +24,7 @@ import javax.imageio.ImageIO;
  * @author Jonathan Groff Copyright (C) NeoCoreTechs 2022
  */
 public class Instance {
-	private static boolean DEBUG = true;
+	private static boolean DEBUG = false;
 	// Store the bufferedImage.
 	private BufferedImage image;
 	private String label;
@@ -163,7 +163,7 @@ public class Instance {
 	/**
 	 * Determine if translated image differs in threshold amount from provided image bytes
 	 * @param previousImageByteArray The getImageByteArray of previous image
-	 * @param threshold amount to change before returning true, typically float THRESHOLD = 0.03f;
+	 * @param threshold amount to change before returning true, typically float THRESHOLD = 0.15f;
 	 * @return true if threshold change exceeded
 	 */
 	public boolean shouldSegment(byte[] previousImageByteArray, float threshold) {
@@ -172,10 +172,14 @@ public class Instance {
 		if(previousImageByteArray == null)
 			throw new RuntimeException("previous array null...");
 		int changed = 0;
-		for(int i = 0; i < imageByteArray.length; i++) {
-			if ((imageByteArray[i] ^ previousImageByteArray[i]) != 0) changed++;
+		for(int i = 0; i < imageByteArray.length; i+=3) {
+			int img1 = luminance(imageByteArray[i], imageByteArray[i+1], imageByteArray[i+2]);
+			int img2 = luminance(previousImageByteArray[i], previousImageByteArray[i+1], previousImageByteArray[i+2]);
+			int diff = Math.abs(img2 - img1);
+			if(diff > 15)
+				++changed;
 		}
-		changeRatio = (float) changed / imageByteArray.length;
+		changeRatio = (float) changed / (imageByteArray.length/3);
 		if(DEBUG)
 			System.out.println("change ratio="+changeRatio+" triggerSegmentation result="+(changeRatio > threshold));
 		return (changeRatio > threshold);

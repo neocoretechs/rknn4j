@@ -24,7 +24,7 @@ import javax.imageio.ImageIO;
  * @author Jonathan Groff Copyright (C) NeoCoreTechs 2022
  */
 public class Instance {
-	private static boolean DEBUG = false;
+	private static boolean DEBUG = true;
 	// Store the bufferedImage.
 	private BufferedImage image;
 	private String label;
@@ -32,10 +32,8 @@ public class Instance {
 	private int width, height, channels;
 	
 	private byte[] imageByteArray;
-	private byte[] previousImageByteArray;
+	
 	private int[][] gray_image;
-	private float THRESHOLD = 0.03f;
-	private boolean triggerSegmentation = true;
 
     enum PadMode { RESIZE, BITBLT_CENTER, BITBLT_CORNER }
     private PadMode mode = PadMode.BITBLT_CENTER;
@@ -105,19 +103,7 @@ public class Instance {
 		
 		if(this.imageByteArray == null)
 			throw new RuntimeException("Image resize error");
-		// determine if current frame has produced enough change to trigger new segmentation based on previous frame
-		float changeRatio = THRESHOLD;
-		if(previousImageByteArray == null) {
-			previousImageByteArray = imageByteArray;
-		} else {
-			int changed = 0;
-			for(int i = 0; i < imageByteArray.length; i++) {
-				if ((imageByteArray[i] ^ previousImageByteArray[i]) != 0) changed++;
-			}
-			changeRatio = (float) changed / imageByteArray.length;
-		}
-		triggerSegmentation = (changeRatio > THRESHOLD);
-
+	
 		this.image = new BufferedImage(fixWidth, fixHeight, BufferedImage.TYPE_INT_RGB);
 	    final ByteBuffer bb = ByteBuffer.wrap(this.imageByteArray);//.order(ByteOrder.LITTLE_ENDIAN);
 	    final int[] ret = new int[this.imageByteArray.length / 3];
@@ -168,11 +154,31 @@ public class Instance {
 		this.imageByteArray = bb.array();
 	}
 	/**
-	 * Return the result of comparison for image change over THRESHOLD
+	 * Return converted RGB array bytes from previous image
 	 * @return
 	 */
-	public boolean shouldSegment() {
-		return triggerSegmentation;
+	public byte[] getImageByteArray() {
+		return imageByteArray;
+	}
+	/**
+	 * Determine if translated image differs in threshold amount from provided image bytes
+	 * @param previousImageByteArray The getImageByteArray of previous image
+	 * @param threshold amount to change before returning true, typically float THRESHOLD = 0.03f;
+	 * @return true if threshold change exceeded
+	 */
+	public boolean shouldSegment(byte[] previousImageByteArray, float threshold) {
+		// determine if current frame has produced enough change to trigger new segmentation based on previous frame
+		float changeRatio = threshold;
+		if(previousImageByteArray == null)
+			throw new RuntimeException("previous array null...");
+		int changed = 0;
+		for(int i = 0; i < imageByteArray.length; i++) {
+			if ((imageByteArray[i] ^ previousImageByteArray[i]) != 0) changed++;
+		}
+		changeRatio = (float) changed / imageByteArray.length;
+		if(DEBUG)
+			System.out.println("change ratio="+changeRatio+" triggerSegmentation result="+(changeRatio > threshold));
+		return (changeRatio > threshold);
 	}
 	/**
 	 * RGB 888 left to right, top to bottom
